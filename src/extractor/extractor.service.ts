@@ -19,6 +19,10 @@ export class ExtractorService {
 
     this.logger.debug(`Extracting article from URL: ${input}`);
 
+    // 0. Social media link → extract inner URL first
+    const innerResult = await this.tryResolveInnerUrl(input);
+    if (innerResult) return innerResult;
+
     // 1. article-extractor (fetch + smart parsing)
     const articleResult = await this.tryArticleExtractor(input);
     if (articleResult) return articleResult;
@@ -132,6 +136,92 @@ export class ExtractorService {
       this.logger.warn(`oembed failed for ${url}: ${error.message}`);
     }
     return null;
+  }
+
+  private async tryResolveInnerUrl(
+    url: string,
+  ): Promise<ExtractResult | null> {
+    const tweetId = this.extractTweetId(url);
+    if (!tweetId) return null;
+
+    try {
+      const apiUrl = `https://api.fxtwitter.com/status/${tweetId}`;
+      this.logger.debug(`Fetching tweet via fxtwitter: ${apiUrl}`);
+
+      const response = await fetch(apiUrl, {
+        signal: AbortSignal.timeout(10_000),
+      });
+
+      if (!response.ok) {
+        this.logger.warn(`fxtwitter failed: HTTP ${response.status}`);
+        return null;
+      }
+
+      const data = await response.json();
+      const tweetText: string = data.tweet?.text || '';
+
+      if (!tweetText) {
+        this.logger.warn('fxtwitter returned empty tweet text');
+        return null;
+      }
+
+      // Extract URLs from tweet text
+      const urls = this.extractUrls(tweetText);
+      this.logger.debug(
+        `Found ${urls.length} URL(s) in tweet: ${urls.join(', ')}`,
+      );
+
+      // Try to extract article from each inner URL
+      for (const innerUrl of urls) {
+        const articleResult = await this.tryArticleExtractor(innerUrl);
+        if (articleResult) {
+          this.logger.log(
+            `Extracted article from inner URL: ${innerUrl}`,
+          );
+          return articleResult;
+        }
+
+        const fetchResult = await this.tryRawFetch(innerUrl);
+        if (fetchResult) {
+          this.logger.log(
+            `Extracted content from inner URL via raw fetch: ${innerUrl}`,
+          );
+          return fetchResult;
+        }
+      }
+
+      // No inner URLs worked; return tweet text itself
+      this.logger.debug('No inner URLs resolved; using tweet text');
+      return {
+        title: data.tweet?.author?.name
+          ? `${data.tweet.author.name}의 트윗`
+          : '',
+        content: tweetText,
+        url,
+      };
+    } catch (error) {
+      this.logger.warn(
+        `fxtwitter extraction failed for ${url}: ${error.message}`,
+      );
+    }
+    return null;
+  }
+
+  private extractTweetId(url: string): string | null {
+    try {
+      const { hostname, pathname } = new URL(url);
+      if (hostname !== 'x.com' && hostname !== 'twitter.com') return null;
+
+      const match = pathname.match(/\/status\/(\d+)/);
+      return match ? match[1] : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private extractUrls(text: string): string[] {
+    const urlRegex = /https?:\/\/[^\s)]+/g;
+    return text.match(urlRegex) || [];
   }
 
   private getOembedUrl(url: string): string | null {

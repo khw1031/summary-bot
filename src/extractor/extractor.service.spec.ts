@@ -94,25 +94,53 @@ describe('ExtractorService', () => {
       expect(result.content).toContain('Content retrieved via raw fetch');
     });
 
-    it('should fall back to oembed for X/Twitter URLs', async () => {
-      mockedExtract.mockResolvedValue(null);
-      mockFetch
-        .mockResolvedValueOnce({ ok: false, status: 403 }) // raw fetch fails
-        .mockResolvedValueOnce({
-          ok: true,
-          json: () =>
-            Promise.resolve({
-              html: '<blockquote>This is a tweet about NestJS</blockquote>',
-              author_name: 'TestUser',
-            }),
-        });
+    it('should extract inner URL from X/Twitter tweet via fxtwitter', async () => {
+      // fxtwitter API returns tweet with an inner URL
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            tweet: {
+              text: '흥미로운 글 https://example.com/article',
+              author: { name: 'TestUser' },
+            },
+          }),
+      });
+
+      // article-extractor succeeds for the inner URL
+      mockedExtract.mockResolvedValue({
+        title: 'Inner Article',
+        content: '<p>Article content from inner URL</p>',
+        url: 'https://example.com/article',
+      });
+
+      const result = await service.extract(
+        'https://x.com/user/status/123456',
+      );
+
+      expect(result.url).toBe('https://example.com/article');
+      expect(result.content).toContain('Article content from inner URL');
+    });
+
+    it('should use tweet text when inner URL extraction fails', async () => {
+      // fxtwitter returns tweet with no URLs
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            tweet: {
+              text: 'NestJS에 대한 생각을 공유합니다. 모듈 시스템이 정말 좋다.',
+              author: { name: 'TestUser' },
+            },
+          }),
+      });
 
       const result = await service.extract(
         'https://x.com/user/status/123456',
       );
 
       expect(result.url).toBe('https://x.com/user/status/123456');
-      expect(result.content).toContain('This is a tweet about NestJS');
+      expect(result.content).toContain('NestJS에 대한 생각');
       expect(result.title).toContain('TestUser');
     });
 

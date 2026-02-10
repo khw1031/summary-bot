@@ -14,7 +14,7 @@ export class GeminiProvider implements LlmProvider {
       this.configService.get<string>('llm.geminiApiKey'),
     );
     this.model = genAI.getGenerativeModel({
-      model: 'gemini-3.0-pro',
+      model: 'gemini-2.5-pro',
       systemInstruction: SUMMARY_SYSTEM_PROMPT,
     });
   }

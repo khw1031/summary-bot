@@ -3,6 +3,11 @@ export default () => ({
   telegram: {
     botToken: process.env.TELEGRAM_BOT_TOKEN,
     webhookDomain: process.env.TELEGRAM_WEBHOOK_DOMAIN,
+    allowedChatIds: process.env.TELEGRAM_ALLOWED_CHAT_IDS
+      ? process.env.TELEGRAM_ALLOWED_CHAT_IDS.split(',')
+          .map((id) => id.trim())
+          .filter(Boolean)
+      : [],
   },
   llm: {
     provider: process.env.LLM_PROVIDER || 'claude',

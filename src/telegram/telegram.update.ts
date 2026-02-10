@@ -1,6 +1,7 @@
 import { Logger } from '@nestjs/common';
-import { Update, On, Action } from 'nestjs-telegraf';
+import { Update, On, Action, Command } from 'nestjs-telegraf';
 import { Context, Markup } from 'telegraf';
+import { ConfigService } from '@nestjs/config';
 import { SummaryService } from '../summary/summary.service';
 import { SummaryResult } from '../llm/llm.interface';
 
@@ -8,13 +9,42 @@ import { SummaryResult } from '../llm/llm.interface';
 export class TelegramUpdate {
   private readonly logger = new Logger(TelegramUpdate.name);
   private readonly originalTexts = new Map<string, string>();
+  private readonly allowedChatIds: string[];
 
-  constructor(private readonly summaryService: SummaryService) {}
+  constructor(
+    private readonly summaryService: SummaryService,
+    private readonly configService: ConfigService,
+  ) {
+    this.allowedChatIds = this.configService.get<string[]>(
+      'telegram.allowedChatIds',
+    );
+    if (this.allowedChatIds.length === 0) {
+      this.logger.warn(
+        'TELEGRAM_ALLOWED_CHAT_IDS is not set. Bot is open to all users.',
+      );
+    }
+  }
+
+  private isAllowed(chatId: number): boolean {
+    if (this.allowedChatIds.length === 0) return true;
+    return this.allowedChatIds.includes(String(chatId));
+  }
+
+  @Command('start')
+  async onStart(ctx: Context) {
+    const chatId = ctx.chat.id;
+    await ctx.reply(
+      `Your chat ID: <code>${chatId}</code>\n\n` +
+        '이 값을 TELEGRAM_ALLOWED_CHAT_IDS 환경변수에 설정하면 본인만 봇을 사용할 수 있습니다.',
+      { parse_mode: 'HTML' },
+    );
+  }
 
   @On('text')
   async onText(ctx: Context) {
     const text = (ctx.message as any)?.text;
     if (!text) return;
+    if (!this.isAllowed(ctx.chat.id)) return;
 
     try {
       await ctx.sendChatAction('typing');
@@ -43,6 +73,7 @@ export class TelegramUpdate {
 
   @Action(/^retry:/)
   async onRetry(ctx: Context) {
+    if (!this.isAllowed(ctx.chat.id)) return;
     const retryKey = this.extractCacheKey(ctx, 'retry:');
     if (!retryKey) return;
 
@@ -76,6 +107,7 @@ export class TelegramUpdate {
 
   @Action(/^delete:/)
   async onDelete(ctx: Context) {
+    if (!this.isAllowed(ctx.chat.id)) return;
     const cacheKey = this.extractCacheKey(ctx, 'delete:');
     if (!cacheKey) return;
 

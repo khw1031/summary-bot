@@ -47,12 +47,19 @@ export class ExtractorService {
     try {
       const article = await extract(url);
       if (article?.content) {
+        const text = this.stripHtml(article.content);
+        if (text.length < 50) {
+          this.logger.warn(
+            `article-extractor returned too little text for ${url}`,
+          );
+          return null;
+        }
         this.logger.debug(
           `article-extractor succeeded: "${article.title}"`,
         );
         return {
           title: article.title || '',
-          content: article.content,
+          content: text,
           url,
         };
       }
@@ -82,7 +89,7 @@ export class ExtractorService {
       }
 
       const html = await response.text();
-      const text = this.stripHtml(html);
+      const text = this.extractMainContent(html);
 
       if (text.length < 50) {
         this.logger.warn(`Raw fetch returned too little content for ${url}`);
@@ -233,6 +240,36 @@ export class ExtractorService {
     }
 
     return null;
+  }
+
+  private extractMainContent(html: string): string {
+    // Prefer semantic HTML elements: <main>, <article>
+    for (const tag of ['main', 'article']) {
+      const match = html.match(
+        new RegExp(`<${tag}[\\s>][\\s\\S]*<\\/${tag}>`, 'i'),
+      );
+      if (match) {
+        const text = this.stripHtml(match[0]);
+        if (text.length >= 50) {
+          this.logger.debug(`Extracted content from <${tag}> element`);
+          return text;
+        }
+      }
+    }
+
+    // Fallback: remove noise elements, then strip
+    return this.stripHtml(this.removeNoiseElements(html));
+  }
+
+  private removeNoiseElements(html: string): string {
+    let cleaned = html;
+    for (const tag of ['nav', 'header', 'footer', 'aside', 'noscript']) {
+      cleaned = cleaned.replace(
+        new RegExp(`<${tag}[\\s>][\\s\\S]*?<\\/${tag}>`, 'gi'),
+        '',
+      );
+    }
+    return cleaned;
   }
 
   private stripHtml(html: string): string {

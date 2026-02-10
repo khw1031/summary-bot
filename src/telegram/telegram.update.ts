@@ -29,7 +29,7 @@ export class TelegramUpdate {
         Markup.button.callback('삭제', `delete:${cacheKey}`),
       ]);
 
-      await ctx.reply(preview, { parse_mode: 'Markdown', ...keyboard });
+      await ctx.reply(preview, { parse_mode: 'HTML', ...keyboard });
     } catch (error) {
       this.logger.error(`Failed to process message: ${error.message}`, error.stack);
       await ctx.reply('요약 처리 중 오류가 발생했습니다. 다시 시도해 주세요.');
@@ -81,7 +81,7 @@ export class TelegramUpdate {
       ]);
 
       await ctx.editMessageText(preview, {
-        parse_mode: 'Markdown',
+        parse_mode: 'HTML',
         ...keyboard,
       });
     } catch (error) {
@@ -113,12 +113,21 @@ export class TelegramUpdate {
         ? result.summary.substring(0, 500) + '...'
         : result.summary;
 
+    const escapedSummary = this.escapeHtml(summaryPreview);
+
     return [
-      `*${result.title}*`,
-      `📂 ${result.category} | ${tags}`,
+      `<b>${this.escapeHtml(result.title)}</b>`,
+      `📂 ${this.escapeHtml(result.category)} | ${this.escapeHtml(tags)}`,
       '',
-      summaryPreview,
+      escapedSummary,
     ].join('\n');
+  }
+
+  private escapeHtml(text: string): string {
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
   }
 
   private extractCacheKey(ctx: Context, prefix: string): string | null {

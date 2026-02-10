@@ -70,7 +70,7 @@ describe('TelegramUpdate', () => {
       const replyCall = ctx.reply.mock.calls[0];
       expect(replyCall[0]).toContain('테스트 제목');
       expect(replyCall[0]).toContain('Tech');
-      expect(replyCall[1]).toHaveProperty('parse_mode', 'Markdown');
+      expect(replyCall[1]).toHaveProperty('parse_mode', 'HTML');
       expect(replyCall[1]).toHaveProperty('reply_markup');
     });
 

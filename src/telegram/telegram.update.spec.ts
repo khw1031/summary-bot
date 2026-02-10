@@ -4,6 +4,7 @@ jest.mock('@anthropic-ai/sdk', () => jest.fn());
 jest.mock('@google/generative-ai', () => ({ GoogleGenerativeAI: jest.fn() }));
 
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { TelegramUpdate } from './telegram.update';
 import { SummaryService } from '../summary/summary.service';
 import { SummaryResult } from '../llm/llm.interface';
@@ -27,8 +28,11 @@ describe('TelegramUpdate', () => {
   let update: TelegramUpdate;
   let summaryService: jest.Mocked<SummaryService>;
 
+  const ALLOWED_CHAT_ID = 123456789;
+
   const createMockCtx = (overrides: any = {}) => ({
     message: { text: 'https://example.com/article' },
+    chat: { id: ALLOWED_CHAT_ID },
     sendChatAction: jest.fn().mockResolvedValue(undefined),
     reply: jest.fn().mockResolvedValue(undefined),
     answerCbQuery: jest.fn().mockResolvedValue(undefined),
@@ -49,6 +53,12 @@ describe('TelegramUpdate', () => {
             saveToGithub: jest.fn(),
             regenerate: jest.fn(),
             discard: jest.fn(),
+          },
+        },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn().mockReturnValue([String(ALLOWED_CHAT_ID)]),
           },
         },
       ],
@@ -101,6 +111,14 @@ describe('TelegramUpdate', () => {
       await update.onText(ctx as any);
 
       expect(summaryService.processMessage).not.toHaveBeenCalled();
+    });
+
+    it('should ignore messages from unauthorized chat IDs', async () => {
+      const ctx = createMockCtx({ chat: { id: 999999999 } });
+      await update.onText(ctx as any);
+
+      expect(summaryService.processMessage).not.toHaveBeenCalled();
+      expect(ctx.sendChatAction).not.toHaveBeenCalled();
     });
   });
 

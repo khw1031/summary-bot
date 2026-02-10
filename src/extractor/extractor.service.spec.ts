@@ -37,20 +37,20 @@ describe('ExtractorService', () => {
       expect(mockedExtract).not.toHaveBeenCalled();
     });
 
-    it('should extract article from a valid URL via article-extractor', async () => {
+    it('should extract article from a valid URL via article-extractor and strip HTML', async () => {
       mockedExtract.mockResolvedValue({
         title: 'Test Article',
-        content: '<p>Article body content</p>',
+        content:
+          '<p>Article body content that is long enough to pass the minimum length validation check for extraction.</p>',
         url: 'https://example.com/article',
       });
 
       const result = await service.extract('https://example.com/article');
 
-      expect(result).toEqual({
-        title: 'Test Article',
-        content: '<p>Article body content</p>',
-        url: 'https://example.com/article',
-      });
+      expect(result.title).toBe('Test Article');
+      expect(result.url).toBe('https://example.com/article');
+      expect(result.content).not.toContain('<p>');
+      expect(result.content).toContain('Article body content');
       expect(mockedExtract).toHaveBeenCalledWith(
         'https://example.com/article',
       );
@@ -110,7 +110,8 @@ describe('ExtractorService', () => {
       // article-extractor succeeds for the inner URL
       mockedExtract.mockResolvedValue({
         title: 'Inner Article',
-        content: '<p>Article content from inner URL</p>',
+        content:
+          '<p>Article content from inner URL that is long enough to pass the minimum length validation check.</p>',
         url: 'https://example.com/article',
       });
 
@@ -144,6 +145,55 @@ describe('ExtractorService', () => {
       expect(result.title).toContain('TestUser');
     });
 
+    it('should extract content from <article> element in raw fetch fallback', async () => {
+      mockedExtract.mockResolvedValue(null);
+
+      const html = `
+        <html><body>
+          <nav>Home About Contact</nav>
+          <header>Site Header Navigation Menu</header>
+          <article>
+            <p>This is the actual article content that should be extracted by the raw fetch fallback.</p>
+          </article>
+          <footer>Copyright 2025 Footer Links Privacy Policy</footer>
+        </body></html>`;
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve(html),
+      });
+
+      const result = await service.extract('https://example.com/with-article');
+
+      expect(result.content).toContain('actual article content');
+      expect(result.content).not.toContain('Home About Contact');
+      expect(result.content).not.toContain('Footer Links');
+    });
+
+    it('should remove noise elements when no <article> or <main> exists in raw fetch', async () => {
+      mockedExtract.mockResolvedValue(null);
+
+      const html = `
+        <html><body>
+          <nav>Navigation Menu Items</nav>
+          <div class="content">
+            <p>Main body content of the page that should survive noise removal and be long enough.</p>
+          </div>
+          <footer>Copyright Footer Stuff</footer>
+        </body></html>`;
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve(html),
+      });
+
+      const result = await service.extract('https://example.com/no-semantic');
+
+      expect(result.content).toContain('Main body content');
+      expect(result.content).not.toContain('Navigation Menu');
+      expect(result.content).not.toContain('Copyright Footer');
+    });
+
     it('should throw when all extraction methods fail', async () => {
       mockedExtract.mockResolvedValue(null);
       mockFetch.mockRejectedValue(new Error('Network error'));
@@ -155,14 +205,16 @@ describe('ExtractorService', () => {
 
     it('should use empty string for title when article has no title', async () => {
       mockedExtract.mockResolvedValue({
-        content: '<p>Content without title</p>',
+        content:
+          '<p>Content without title that is long enough to pass the minimum length validation check for extraction.</p>',
         url: 'https://example.com/no-title',
       });
 
       const result = await service.extract('https://example.com/no-title');
 
       expect(result.title).toBe('');
-      expect(result.content).toBe('<p>Content without title</p>');
+      expect(result.content).not.toContain('<p>');
+      expect(result.content).toContain('Content without title');
     });
 
     it('should not treat non-http protocols as URLs', async () => {

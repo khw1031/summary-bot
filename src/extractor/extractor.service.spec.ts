@@ -8,6 +8,10 @@ jest.mock('@extractus/article-extractor', () => ({
 import { extract } from '@extractus/article-extractor';
 const mockedExtract = extract as jest.MockedFunction<typeof extract>;
 
+// Mock global fetch
+const mockFetch = jest.fn();
+global.fetch = mockFetch;
+
 describe('ExtractorService', () => {
   let service: ExtractorService;
 
@@ -33,7 +37,7 @@ describe('ExtractorService', () => {
       expect(mockedExtract).not.toHaveBeenCalled();
     });
 
-    it('should extract article from a valid URL', async () => {
+    it('should extract article from a valid URL via article-extractor', async () => {
       mockedExtract.mockResolvedValue({
         title: 'Test Article',
         content: '<p>Article body content</p>',
@@ -52,24 +56,73 @@ describe('ExtractorService', () => {
       );
     });
 
-    it('should throw error when extraction returns no content', async () => {
+    it('should fall back to raw fetch when article-extractor returns no content', async () => {
       mockedExtract.mockResolvedValue({
         url: 'https://example.com/empty',
         title: '',
         content: '',
       });
 
-      await expect(
-        service.extract('https://example.com/empty'),
-      ).rejects.toThrow('Failed to extract content from URL');
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: () =>
+          Promise.resolve(
+            '<html><body><p>Fallback content from raw fetch that is long enough to pass the minimum length check.</p></body></html>',
+          ),
+      });
+
+      const result = await service.extract('https://example.com/empty');
+
+      expect(result.url).toBe('https://example.com/empty');
+      expect(result.content).toContain('Fallback content from raw fetch');
     });
 
-    it('should throw error when extraction returns null', async () => {
+    it('should fall back to raw fetch when article-extractor throws', async () => {
+      mockedExtract.mockRejectedValue(new Error('Network error'));
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: () =>
+          Promise.resolve(
+            '<html><body><p>Content retrieved via raw fetch after extractor failure with enough text.</p></body></html>',
+          ),
+      });
+
+      const result = await service.extract('https://example.com/error');
+
+      expect(result.url).toBe('https://example.com/error');
+      expect(result.content).toContain('Content retrieved via raw fetch');
+    });
+
+    it('should fall back to oembed for X/Twitter URLs', async () => {
       mockedExtract.mockResolvedValue(null);
+      mockFetch
+        .mockResolvedValueOnce({ ok: false, status: 403 }) // raw fetch fails
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              html: '<blockquote>This is a tweet about NestJS</blockquote>',
+              author_name: 'TestUser',
+            }),
+        });
+
+      const result = await service.extract(
+        'https://x.com/user/status/123456',
+      );
+
+      expect(result.url).toBe('https://x.com/user/status/123456');
+      expect(result.content).toContain('This is a tweet about NestJS');
+      expect(result.title).toContain('TestUser');
+    });
+
+    it('should throw when all extraction methods fail', async () => {
+      mockedExtract.mockResolvedValue(null);
+      mockFetch.mockRejectedValue(new Error('Network error'));
 
       await expect(
-        service.extract('https://example.com/null'),
-      ).rejects.toThrow('Failed to extract content from URL');
+        service.extract('https://example.com/impossible'),
+      ).rejects.toThrow('모든 추출 방법이 실패했습니다');
     });
 
     it('should use empty string for title when article has no title', async () => {

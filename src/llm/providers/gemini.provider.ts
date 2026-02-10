@@ -26,10 +26,13 @@ export class GeminiProvider implements LlmProvider {
       SUMMARY_USER_PROMPT(content),
     );
 
-    const text = response.response.text();
+    let text = response.response.text();
     if (!text) {
       throw new Error('No text response from Gemini');
     }
+
+    // Strip markdown code fences if present
+    text = text.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
 
     const result: SummaryResult = JSON.parse(text);
     this.logger.log(`Summary generated: ${result.title}`);

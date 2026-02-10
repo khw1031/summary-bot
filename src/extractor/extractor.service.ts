@@ -19,10 +19,17 @@ export class ExtractorService {
 
     this.logger.debug(`Extracting article from URL: ${input}`);
 
-    const article = await extract(input);
+    let article;
+    try {
+      article = await extract(input);
+    } catch (error) {
+      this.logger.warn(`Extraction failed for URL: ${input}, falling back to URL as text`);
+      return { title: '', content: `Please summarize the content at this URL: ${input}`, url: input };
+    }
 
     if (!article || !article.content) {
-      throw new Error(`Failed to extract content from URL: ${input}`);
+      this.logger.warn(`No content extracted from URL: ${input}, falling back to URL as text`);
+      return { title: '', content: `Please summarize the content at this URL: ${input}`, url: input };
     }
 
     this.logger.debug(`Extracted article: "${article.title}"`);

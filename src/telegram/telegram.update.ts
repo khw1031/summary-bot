@@ -20,41 +20,48 @@ export class TelegramUpdate {
       await ctx.sendChatAction('typing');
 
       const { cacheKey, result, githubUrl } = await this.summaryService.processMessage(text);
-      this.originalTexts.set(cacheKey, text);
+      this.originalTexts.delete(cacheKey);
 
       const preview = this.buildPreview(result, githubUrl);
       const keyboard = Markup.inlineKeyboard([
-        Markup.button.callback('재생성', `regenerate:${cacheKey}`),
         Markup.button.callback('삭제', `delete:${cacheKey}`),
       ]);
 
       await ctx.reply(preview, { parse_mode: 'HTML', ...keyboard });
     } catch (error) {
       this.logger.error(`Failed to process message: ${error.message}`, error.stack);
-      await ctx.reply('요약 처리 중 오류가 발생했습니다. 다시 시도해 주세요.');
+
+      const retryKey = `retry-${Date.now()}`;
+      this.originalTexts.set(retryKey, text);
+      const keyboard = Markup.inlineKeyboard([
+        Markup.button.callback('재시도', `retry:${retryKey}`),
+      ]);
+
+      await ctx.reply('요약 처리 중 오류가 발생했습니다.', keyboard);
     }
   }
 
-  @Action(/^regenerate:/)
-  async onRegenerate(ctx: Context) {
-    const cacheKey = this.extractCacheKey(ctx, 'regenerate:');
-    if (!cacheKey) return;
+  @Action(/^retry:/)
+  async onRetry(ctx: Context) {
+    const retryKey = this.extractCacheKey(ctx, 'retry:');
+    if (!retryKey) return;
+
+    const originalText = this.originalTexts.get(retryKey);
+    if (!originalText) {
+      await ctx.answerCbQuery('재시도 정보가 만료되었습니다.');
+      return;
+    }
 
     try {
-      await ctx.answerCbQuery('재생성 중...');
+      await ctx.answerCbQuery('재시도 중...');
+      this.originalTexts.delete(retryKey);
 
-      const originalText = this.originalTexts.get(cacheKey) || '';
-      this.originalTexts.delete(cacheKey);
-      this.summaryService.discard(cacheKey);
-
-      const { cacheKey: newCacheKey, result, githubUrl } =
-        await this.summaryService.regenerate(originalText);
-      this.originalTexts.set(newCacheKey, originalText);
+      const { cacheKey, result, githubUrl } =
+        await this.summaryService.processMessage(originalText);
 
       const preview = this.buildPreview(result, githubUrl);
       const keyboard = Markup.inlineKeyboard([
-        Markup.button.callback('재생성', `regenerate:${newCacheKey}`),
-        Markup.button.callback('삭제', `delete:${newCacheKey}`),
+        Markup.button.callback('삭제', `delete:${cacheKey}`),
       ]);
 
       await ctx.editMessageText(preview, {
@@ -62,8 +69,8 @@ export class TelegramUpdate {
         ...keyboard,
       });
     } catch (error) {
-      this.logger.error(`Failed to regenerate: ${error.message}`, error.stack);
-      await ctx.answerCbQuery('재생성 중 오류가 발생했습니다.');
+      this.logger.error(`Failed to retry: ${error.message}`, error.stack);
+      await ctx.answerCbQuery('재시도에 실패했습니다.');
     }
   }
 

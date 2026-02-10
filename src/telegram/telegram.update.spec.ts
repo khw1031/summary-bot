@@ -82,7 +82,7 @@ describe('TelegramUpdate', () => {
       expect(replyCall[1]).toHaveProperty('reply_markup');
     });
 
-    it('should reply with error message on failure', async () => {
+    it('should reply with error and retry button on failure', async () => {
       summaryService.processMessage.mockRejectedValue(
         new Error('LLM failed'),
       );
@@ -90,9 +90,10 @@ describe('TelegramUpdate', () => {
       const ctx = createMockCtx();
       await update.onText(ctx as any);
 
-      expect(ctx.reply).toHaveBeenCalledWith(
-        '요약 처리 중 오류가 발생했습니다. 다시 시도해 주세요.',
-      );
+      expect(ctx.reply).toHaveBeenCalledTimes(1);
+      const replyCall = ctx.reply.mock.calls[0];
+      expect(replyCall[0]).toBe('요약 처리 중 오류가 발생했습니다.');
+      expect(replyCall[1]).toHaveProperty('reply_markup');
     });
 
     it('should return early if no text in message', async () => {
@@ -103,40 +104,52 @@ describe('TelegramUpdate', () => {
     });
   });
 
-  describe('onRegenerate', () => {
-    it('should regenerate and update message', async () => {
+  describe('onRetry', () => {
+    it('should retry and update message on success', async () => {
+      // Simulate a failed first attempt that stores retry key
+      summaryService.processMessage.mockRejectedValueOnce(
+        new Error('LLM failed'),
+      );
+
+      const textCtx = createMockCtx();
+      await update.onText(textCtx as any);
+
+      // Extract retry key from the reply
+      const replyCall = textCtx.reply.mock.calls[0];
+      const retryButton = replyCall[1].reply_markup.inline_keyboard[0][0];
+      const retryKey = retryButton.callback_data.replace('retry:', '');
+
+      // Now mock a successful processMessage for the retry
       summaryService.processMessage.mockResolvedValue({
-        cacheKey: 'regen-key',
+        cacheKey: 'new-key',
         result: mockSummaryResult,
         githubUrl: 'https://github.com/user/repo/file.md',
       });
 
-      const newResult: SummaryResult = {
-        ...mockSummaryResult,
-        title: '새 제목',
-      };
-      summaryService.regenerate.mockResolvedValue({
-        cacheKey: 'new-regen-key',
-        result: newResult,
-        githubUrl: 'https://github.com/user/repo/new-file.md',
-      });
-
-      // First create entry
-      const textCtx = createMockCtx();
-      await update.onText(textCtx as any);
-
       const ctx = createMockCtx({
-        callbackQuery: { data: 'regenerate:regen-key' },
+        callbackQuery: { data: `retry:${retryKey}` },
       });
-      await update.onRegenerate(ctx as any);
+      await update.onRetry(ctx as any);
 
-      expect(ctx.answerCbQuery).toHaveBeenCalledWith('재생성 중...');
-      expect(summaryService.discard).toHaveBeenCalledWith('regen-key');
-      expect(summaryService.regenerate).toHaveBeenCalled();
+      expect(ctx.answerCbQuery).toHaveBeenCalledWith('재시도 중...');
+      expect(summaryService.processMessage).toHaveBeenCalledWith(
+        'https://example.com/article',
+      );
       expect(ctx.editMessageText).toHaveBeenCalledTimes(1);
 
       const editCall = ctx.editMessageText.mock.calls[0];
-      expect(editCall[0]).toContain('새 제목');
+      expect(editCall[0]).toContain('테스트 제목');
+    });
+
+    it('should answer callback with expired message for unknown retry key', async () => {
+      const ctx = createMockCtx({
+        callbackQuery: { data: 'retry:unknown-key' },
+      });
+      await update.onRetry(ctx as any);
+
+      expect(ctx.answerCbQuery).toHaveBeenCalledWith(
+        '재시도 정보가 만료되었습니다.',
+      );
     });
   });
 

@@ -13,6 +13,13 @@ const mockSummaryResult: SummaryResult = {
   description: 'test-title',
   category: 'Tech',
   tags: ['tag1', 'tag2', 'tag3'],
+  keywords: ['테스트', '기술', '개발'],
+  concepts: {
+    upper: ['소프트웨어 개발'],
+    lower: ['단위 테스트', '통합 테스트'],
+    related: ['TDD', 'CI/CD'],
+  },
+  insights: ['테스트는 소프트웨어 품질의 핵심이다.'],
   summary: '# Summary\n\nThis is a test summary.',
 };
 
@@ -56,6 +63,7 @@ describe('TelegramUpdate', () => {
       summaryService.processMessage.mockResolvedValue({
         cacheKey: 'test-key',
         result: mockSummaryResult,
+        githubUrl: 'https://github.com/user/repo/file.md',
       });
 
       const ctx = createMockCtx();
@@ -95,53 +103,12 @@ describe('TelegramUpdate', () => {
     });
   });
 
-  describe('onSave', () => {
-    it('should save to GitHub and edit message with URL', async () => {
-      summaryService.processMessage.mockResolvedValue({
-        cacheKey: 'save-key',
-        result: mockSummaryResult,
-      });
-      summaryService.saveToGithub.mockResolvedValue(
-        'https://github.com/user/repo/file.md',
-      );
-
-      // First create the entry via onText
-      const textCtx = createMockCtx();
-      await update.onText(textCtx as any);
-
-      const ctx = createMockCtx({
-        callbackQuery: { data: 'save:save-key' },
-      });
-      await update.onSave(ctx as any);
-
-      expect(ctx.answerCbQuery).toHaveBeenCalledWith('저장 중...');
-      expect(summaryService.saveToGithub).toHaveBeenCalled();
-      expect(ctx.editMessageText).toHaveBeenCalledWith(
-        expect.stringContaining('GitHub에 저장되었습니다'),
-      );
-    });
-
-    it('should answer callback with error on failure', async () => {
-      summaryService.saveToGithub.mockRejectedValue(
-        new Error('GitHub error'),
-      );
-
-      const ctx = createMockCtx({
-        callbackQuery: { data: 'save:bad-key' },
-      });
-      await update.onSave(ctx as any);
-
-      expect(ctx.answerCbQuery).toHaveBeenCalledWith(
-        '저장 중 오류가 발생했습니다.',
-      );
-    });
-  });
-
   describe('onRegenerate', () => {
     it('should regenerate and update message', async () => {
       summaryService.processMessage.mockResolvedValue({
         cacheKey: 'regen-key',
         result: mockSummaryResult,
+        githubUrl: 'https://github.com/user/repo/file.md',
       });
 
       const newResult: SummaryResult = {
@@ -151,6 +118,7 @@ describe('TelegramUpdate', () => {
       summaryService.regenerate.mockResolvedValue({
         cacheKey: 'new-regen-key',
         result: newResult,
+        githubUrl: 'https://github.com/user/repo/new-file.md',
       });
 
       // First create entry

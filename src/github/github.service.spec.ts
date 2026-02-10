@@ -8,7 +8,7 @@ jest.mock('@octokit/rest', () => ({
       createOrUpdateFileContents: jest.fn().mockResolvedValue({
         data: {
           content: {
-            html_url: 'https://github.com/owner/repo/blob/main/90-summaries/2026-02-10-test-slug.md',
+            html_url: 'https://github.com/owner/repo/blob/main/98-summaries/2026-02-10-test-slug.md',
           },
         },
       }),
@@ -27,6 +27,7 @@ describe('GithubService', () => {
       const config = {
         'github.token': 'test-token',
         'github.repo': 'owner/repo',
+        'github.summaryDir': '98-summaries',
       };
       return config[key];
     }),
@@ -62,6 +63,13 @@ describe('GithubService', () => {
       description: 'test-slug',
       category: 'Tech',
       tags: ['nestjs', 'typescript', 'testing'],
+      keywords: ['NestJS', '타입스크립트', '테스트'],
+      concepts: {
+        upper: ['백엔드 프레임워크'],
+        lower: ['의존성 주입', '모듈 시스템'],
+        related: ['Express', 'Spring Boot'],
+      },
+      insights: ['NestJS는 모듈 기반 아키텍처로 대규모 애플리케이션에 적합하다.'],
       summary: '## 요약\n\n테스트 요약 내용입니다.',
     };
     const sourceUrl = 'https://example.com/article';
@@ -70,7 +78,7 @@ describe('GithubService', () => {
       const url = await service.saveMarkdown(summaryResult, sourceUrl);
 
       expect(url).toBe(
-        'https://github.com/owner/repo/blob/main/90-summaries/2026-02-10-test-slug.md',
+        'https://github.com/owner/repo/blob/main/98-summaries/2026-02-10-test-slug.md',
       );
 
       expect(
@@ -82,7 +90,7 @@ describe('GithubService', () => {
       expect(call.owner).toBe('owner');
       expect(call.repo).toBe('repo');
       expect(call.path).toMatch(
-        /^90-summaries\/\d{4}-\d{2}-\d{2}-test-slug\.md$/,
+        /^98-summaries\/\d{4}-\d{2}-\d{2}-test-slug\.md$/,
       );
       expect(call.message).toBe('docs: add summary - 테스트 제목');
       expect(call.content).toBeDefined();

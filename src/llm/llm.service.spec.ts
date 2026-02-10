@@ -16,6 +16,13 @@ describe('LlmService', () => {
     description: 'test-title',
     category: 'Tech',
     tags: ['test'],
+    keywords: ['테스트', '기술'],
+    concepts: {
+      upper: ['소프트웨어 개발'],
+      lower: ['단위 테스트', '통합 테스트'],
+      related: ['TDD', 'CI/CD'],
+    },
+    insights: ['테스트는 소프트웨어 품질 보증의 핵심이다.'],
     summary: '## 요약',
   };
 

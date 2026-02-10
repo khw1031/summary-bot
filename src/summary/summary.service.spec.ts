@@ -15,6 +15,13 @@ const mockSummaryResult: SummaryResult = {
   description: 'test-summary-title',
   category: 'Tech',
   tags: ['testing', 'nestjs', 'typescript'],
+  keywords: ['테스트', 'NestJS', '타입스크립트'],
+  concepts: {
+    upper: ['백엔드 개발'],
+    lower: ['단위 테스트', '의존성 주입'],
+    related: ['Jest', 'Express'],
+  },
+  insights: ['NestJS의 모듈 시스템은 테스트 격리를 용이하게 한다.'],
   summary: '# 요약\n\n이것은 테스트 요약입니다.',
 };
 
@@ -50,15 +57,18 @@ describe('SummaryService', () => {
   });
 
   describe('processMessage', () => {
-    it('should extract and summarize URL input', async () => {
+    it('should extract, summarize, and auto-save URL input', async () => {
       extractorService.extract.mockResolvedValue({
         title: 'Article Title',
         content: '<p>Article body</p>',
         url: 'https://example.com/article',
       });
       llmService.summarize.mockResolvedValue(mockSummaryResult);
+      githubService.saveMarkdown.mockResolvedValue(
+        'https://github.com/user/repo/blob/main/file.md',
+      );
 
-      const { cacheKey, result } = await service.processMessage(
+      const { cacheKey, result, githubUrl } = await service.processMessage(
         'https://example.com/article',
       );
 
@@ -68,19 +78,27 @@ describe('SummaryService', () => {
       expect(llmService.summarize).toHaveBeenCalledWith(
         '<p>Article body</p>',
       );
+      expect(githubService.saveMarkdown).toHaveBeenCalledWith(
+        mockSummaryResult,
+        'https://example.com/article',
+      );
       expect(result).toEqual(mockSummaryResult);
+      expect(githubUrl).toBe('https://github.com/user/repo/blob/main/file.md');
       expect(cacheKey).toBeDefined();
     });
 
-    it('should summarize plain text input directly', async () => {
+    it('should summarize and auto-save plain text input', async () => {
       extractorService.extract.mockResolvedValue({
         title: '',
         content: 'Some plain text to summarize',
         url: '',
       });
       llmService.summarize.mockResolvedValue(mockSummaryResult);
+      githubService.saveMarkdown.mockResolvedValue(
+        'https://github.com/user/repo/blob/main/file.md',
+      );
 
-      const { cacheKey, result } = await service.processMessage(
+      const { cacheKey, result, githubUrl } = await service.processMessage(
         'Some plain text to summarize',
       );
 
@@ -91,6 +109,7 @@ describe('SummaryService', () => {
         'Some plain text to summarize',
       );
       expect(result).toEqual(mockSummaryResult);
+      expect(githubUrl).toBeDefined();
       expect(cacheKey).toBeDefined();
     });
   });
@@ -159,6 +178,7 @@ describe('SummaryService', () => {
         url: '',
       });
       llmService.summarize.mockResolvedValue(mockSummaryResult);
+      githubService.saveMarkdown.mockResolvedValue('https://github.com/...');
 
       const first = await service.processMessage('text');
       const second = await service.regenerate('text');
@@ -176,6 +196,7 @@ describe('SummaryService', () => {
         url: '',
       });
       llmService.summarize.mockResolvedValue(mockSummaryResult);
+      githubService.saveMarkdown.mockResolvedValue('https://github.com/...');
 
       const { cacheKey } = await service.processMessage('text');
       service.discard(cacheKey);
@@ -194,6 +215,7 @@ describe('SummaryService', () => {
         url: '',
       });
       llmService.summarize.mockResolvedValue(mockSummaryResult);
+      githubService.saveMarkdown.mockResolvedValue('https://github.com/...');
 
       const { cacheKey } = await service.processMessage('text');
 

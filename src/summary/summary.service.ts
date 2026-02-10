@@ -8,6 +8,7 @@ import { SummaryResult } from '../llm/llm.interface';
 interface CacheEntry {
   result: SummaryResult;
   sourceUrl: string;
+  githubUrl: string;
   expiresAt: number;
 }
 
@@ -26,7 +27,7 @@ export class SummaryService {
 
   async processMessage(
     text: string,
-  ): Promise<{ cacheKey: string; result: SummaryResult }> {
+  ): Promise<{ cacheKey: string; result: SummaryResult; githubUrl: string }> {
     const extracted = await this.extractorService.extract(text);
     const sourceUrl = extracted.url;
 
@@ -37,17 +38,19 @@ export class SummaryService {
     );
 
     const result = await this.llmService.summarize(extracted.content);
+    const githubUrl = await this.githubService.saveMarkdown(result, sourceUrl);
     const cacheKey = randomUUID();
 
     this.cache.set(cacheKey, {
       result,
       sourceUrl,
+      githubUrl,
       expiresAt: Date.now() + CACHE_TTL,
     });
 
-    this.logger.log(`Summary cached with key: ${cacheKey}`);
+    this.logger.log(`Summary saved to GitHub and cached with key: ${cacheKey}`);
 
-    return { cacheKey, result };
+    return { cacheKey, result, githubUrl };
   }
 
   async saveToGithub(cacheKey: string, sourceUrl: string): Promise<string> {
@@ -69,7 +72,7 @@ export class SummaryService {
 
   async regenerate(
     text: string,
-  ): Promise<{ cacheKey: string; result: SummaryResult }> {
+  ): Promise<{ cacheKey: string; result: SummaryResult; githubUrl: string }> {
     this.logger.log('Regenerating summary (ignoring cache)');
     return this.processMessage(text);
   }

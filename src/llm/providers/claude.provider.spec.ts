@@ -25,6 +25,13 @@ describe('ClaudeProvider', () => {
     description: 'understanding-react-server-components',
     category: 'Tech',
     tags: ['react', 'server-components', 'web'],
+    keywords: ['서버 컴포넌트', '클라이언트 컴포넌트', '번들 사이즈'],
+    concepts: {
+      upper: ['React 아키텍처'],
+      lower: ['use client 지시어', '스트리밍 SSR'],
+      related: ['하이드레이션', 'Astro'],
+    },
+    insights: ['서버 컴포넌트는 번들에 포함되지 않아 JS 크기를 줄일 수 있다.'],
     summary: '## 핵심 내용\n\n- 서버 컴포넌트는 서버에서 렌더링됩니다.',
   };
 

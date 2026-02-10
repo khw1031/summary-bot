@@ -12,5 +12,6 @@ export default () => ({
   github: {
     token: process.env.GITHUB_TOKEN,
     repo: process.env.GITHUB_REPO,
+    summaryDir: process.env.SUMMARY_DIR || '98-summaries',
   },
 });

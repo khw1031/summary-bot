@@ -65,6 +65,7 @@ describe('ExtractorService', () => {
 
       mockFetch.mockResolvedValue({
         ok: true,
+        headers: new Map([['content-type', 'text/html']]),
         text: () =>
           Promise.resolve(
             '<html><body><p>Fallback content from raw fetch that is long enough to pass the minimum length check.</p></body></html>',
@@ -82,6 +83,7 @@ describe('ExtractorService', () => {
 
       mockFetch.mockResolvedValue({
         ok: true,
+        headers: new Map([['content-type', 'text/html']]),
         text: () =>
           Promise.resolve(
             '<html><body><p>Content retrieved via raw fetch after extractor failure with enough text.</p></body></html>',
@@ -145,6 +147,36 @@ describe('ExtractorService', () => {
       expect(result.title).toContain('TestUser');
     });
 
+    it('should fall back to raw_text when fxtwitter text field is empty', async () => {
+      // fxtwitter returns empty text but raw_text has content (e.g. X Articles)
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            tweet: {
+              text: '',
+              raw_text: '흥미로운 글 https://example.com/article',
+              author: { name: 'TestUser' },
+            },
+          }),
+      });
+
+      // article-extractor succeeds for the inner URL
+      mockedExtract.mockResolvedValue({
+        title: 'Inner Article',
+        content:
+          '<p>Article content from inner URL that is long enough to pass the minimum length validation check.</p>',
+        url: 'https://example.com/article',
+      });
+
+      const result = await service.extract(
+        'https://x.com/user/status/123456',
+      );
+
+      expect(result.url).toBe('https://example.com/article');
+      expect(result.content).toContain('Article content from inner URL');
+    });
+
     it('should extract content from <article> element in raw fetch fallback', async () => {
       mockedExtract.mockResolvedValue(null);
 
@@ -160,6 +192,7 @@ describe('ExtractorService', () => {
 
       mockFetch.mockResolvedValue({
         ok: true,
+        headers: new Map([['content-type', 'text/html']]),
         text: () => Promise.resolve(html),
       });
 
@@ -184,6 +217,7 @@ describe('ExtractorService', () => {
 
       mockFetch.mockResolvedValue({
         ok: true,
+        headers: new Map([['content-type', 'text/html']]),
         text: () => Promise.resolve(html),
       });
 
@@ -200,6 +234,39 @@ describe('ExtractorService', () => {
 
       await expect(
         service.extract('https://example.com/impossible'),
+      ).rejects.toThrow('모든 추출 방법이 실패했습니다');
+    });
+
+    it('should throw for PDF content type via HEAD pre-check', async () => {
+      // HEAD request returns application/pdf
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        headers: new Map([['content-type', 'application/pdf']]),
+      });
+
+      await expect(
+        service.extract('https://example.com/document.pdf'),
+      ).rejects.toThrow('지원하지 않는 콘텐츠 유형입니다');
+    });
+
+    it('should skip raw fetch for non-HTML content types', async () => {
+      // HEAD pre-check fails (network error), so extraction proceeds
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+      });
+
+      // article-extractor fails
+      mockedExtract.mockResolvedValue(null);
+
+      // raw fetch returns image content type
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        headers: new Map([['content-type', 'image/png']]),
+      });
+
+      // oembed also fails (not a tweet URL)
+      await expect(
+        service.extract('https://example.com/image.png'),
       ).rejects.toThrow('모든 추출 방법이 실패했습니다');
     });
 

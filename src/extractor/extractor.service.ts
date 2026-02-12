@@ -23,6 +23,9 @@ export class ExtractorService {
     const innerResult = await this.tryResolveInnerUrl(input);
     if (innerResult) return innerResult;
 
+    // 0.5. Content-Type pre-check (reject non-web content like PDF, images)
+    await this.validateContentType(input);
+
     // 1. article-extractor (fetch + smart parsing)
     const articleResult = await this.tryArticleExtractor(input);
     if (articleResult) return articleResult;
@@ -85,6 +88,14 @@ export class ExtractorService {
 
       if (!response.ok) {
         this.logger.warn(`Raw fetch failed for ${url}: HTTP ${response.status}`);
+        return null;
+      }
+
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType && !this.isExtractableContentType(contentType)) {
+        this.logger.warn(
+          `Unsupported content type for ${url}: ${contentType}`,
+        );
         return null;
       }
 
@@ -165,7 +176,8 @@ export class ExtractorService {
       }
 
       const data = await response.json();
-      const tweetText: string = data.tweet?.text || '';
+      const tweetText: string =
+        data.tweet?.text || data.tweet?.raw_text || '';
 
       if (!tweetText) {
         this.logger.warn('fxtwitter returned empty tweet text');
@@ -285,6 +297,36 @@ export class ExtractorService {
       .replace(/&#39;/g, "'")
       .replace(/\s+/g, ' ')
       .trim();
+  }
+
+  private async validateContentType(url: string): Promise<void> {
+    try {
+      const response = await fetch(url, {
+        method: 'HEAD',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; SummaryBot/1.0)',
+        },
+        redirect: 'follow',
+        signal: AbortSignal.timeout(5_000),
+      });
+
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType && !this.isExtractableContentType(contentType)) {
+        throw new Error(
+          `지원하지 않는 콘텐츠 유형입니다 (${contentType.split(';')[0].trim()}): ${url}`,
+        );
+      }
+    } catch (error) {
+      if (error.message.startsWith('지원하지 않는')) throw error;
+      this.logger.debug(
+        `Content-Type pre-check failed for ${url}, proceeding with extraction`,
+      );
+    }
+  }
+
+  private isExtractableContentType(contentType: string): boolean {
+    const type = contentType.toLowerCase().split(';')[0].trim();
+    return type.startsWith('text/') || type === 'application/xhtml+xml';
   }
 
   private isUrl(input: string): boolean {

@@ -23,6 +23,19 @@ export class ExtractorService {
     const innerResult = await this.tryResolveInnerUrl(input);
     if (innerResult) return innerResult;
 
+    // 0.1. Social media URL (e.g. x.com) → skip article/raw fetch, go straight to oembed
+    if (this.isSocialMediaUrl(input)) {
+      this.logger.debug(
+        `Social media URL detected, skipping article/raw fetch: ${input}`,
+      );
+      const oembedResult = await this.tryOembed(input);
+      if (oembedResult) return oembedResult;
+
+      throw new Error(
+        `모든 추출 방법이 실패했습니다: ${input}`,
+      );
+    }
+
     // 0.5. Content-Type pre-check (reject non-web content like PDF, images)
     await this.validateContentType(input);
 
@@ -288,6 +301,14 @@ export class ExtractorService {
     return html
       .replace(/<script[\s\S]*?<\/script>/gi, '')
       .replace(/<style[\s\S]*?<\/style>/gi, '')
+      // Preserve <a> tag URLs: convert to "text (url)" format
+      .replace(/<a\s[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi,
+        (_, href, text) => {
+          const cleanText = text.replace(/<[^>]+>/g, '').trim();
+          if (!cleanText || cleanText === href) return ` ${href} `;
+          return ` ${cleanText} (${href}) `;
+        },
+      )
       .replace(/<[^>]+>/g, ' ')
       .replace(/&nbsp;/g, ' ')
       .replace(/&amp;/g, '&')
@@ -297,6 +318,15 @@ export class ExtractorService {
       .replace(/&#39;/g, "'")
       .replace(/\s+/g, ' ')
       .trim();
+  }
+
+  private isSocialMediaUrl(url: string): boolean {
+    try {
+      const { hostname } = new URL(url);
+      return hostname === 'x.com' || hostname === 'twitter.com';
+    } catch {
+      return false;
+    }
   }
 
   private async validateContentType(url: string): Promise<void> {

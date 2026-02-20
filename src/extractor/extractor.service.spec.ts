@@ -228,6 +228,52 @@ describe('ExtractorService', () => {
       expect(result.content).not.toContain('Copyright Footer');
     });
 
+    it('should skip article/raw fetch and use oembed for X/Twitter URL when fxtwitter fails', async () => {
+      // fxtwitter API fails
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+      });
+
+      // oembed succeeds
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            html: '<blockquote>트윗 본문 내용입니다.</blockquote>',
+            author_name: 'TestUser',
+          }),
+      });
+
+      const result = await service.extract(
+        'https://x.com/user/status/999999',
+      );
+
+      expect(result.title).toContain('TestUser');
+      expect(result.content).toContain('트윗 본문 내용입니다');
+      // article-extractor should NOT have been called
+      expect(mockedExtract).not.toHaveBeenCalled();
+      // Only 2 fetch calls: fxtwitter + oembed (no HEAD pre-check, no raw fetch)
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('should preserve links in article content as text (url) format', async () => {
+      mockedExtract.mockResolvedValue({
+        title: 'Article With Links',
+        content:
+          '<p>Check out <a href="https://example.com/ref">this reference</a> and also <a href="https://example.com/docs">https://example.com/docs</a> for more info that passes the length check.</p>',
+        url: 'https://example.com/article',
+      });
+
+      const result = await service.extract('https://example.com/article');
+
+      // Link with different text: "text (url)" format
+      expect(result.content).toContain('this reference (https://example.com/ref)');
+      // Link where text === href: just the URL
+      expect(result.content).toContain('https://example.com/docs');
+      expect(result.content).not.toContain('<a');
+    });
+
     it('should throw when all extraction methods fail', async () => {
       mockedExtract.mockResolvedValue(null);
       mockFetch.mockRejectedValue(new Error('Network error'));

@@ -19,4 +19,7 @@ export default () => ({
     repo: process.env.GITHUB_REPO,
     summaryDir: process.env.SUMMARY_DIR || '98-summaries',
   },
+  extractor: {
+    jinaReaderApiKey: process.env.JINA_READER_API_KEY || '',
+  },
 });

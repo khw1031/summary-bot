@@ -12,7 +12,6 @@
     "github",
     "markdown",
     "knowledge-graph",
-    "article-extractor",
     "content-summarization",
     "ai"
   ],
@@ -37,7 +36,6 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
-    "@extractus/article-extractor": "^8.0.14",
     "@google/generative-ai": "^0.24.0",
     "@nestjs/common": "^11.0.0",
     "@nestjs/config": "^4.0.0",
@@ -75,9 +73,6 @@
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
-    "transformIgnorePatterns": [
-      "node_modules/(?!(@extractus/article-extractor)/)"
-    ],
     "collectCoverageFrom": [
       "**/*.(t|j)s"
     ],

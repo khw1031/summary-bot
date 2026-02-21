@@ -1,4 +1,3 @@
-jest.mock('@extractus/article-extractor', () => ({ extract: jest.fn() }));
 jest.mock('@octokit/rest', () => ({ Octokit: jest.fn() }));
 jest.mock('@anthropic-ai/sdk', () => jest.fn());
 jest.mock('@google/generative-ai', () => ({ GoogleGenerativeAI: jest.fn() }));

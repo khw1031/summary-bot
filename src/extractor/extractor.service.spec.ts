@@ -341,5 +341,168 @@ describe('ExtractorService', () => {
       });
       expect(mockedExtract).not.toHaveBeenCalled();
     });
+
+    it('should prioritize media.external.url from fxtwitter over tweet text URLs', async () => {
+      // fxtwitter returns tweet with external media URL (link card)
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            tweet: {
+              text: '이 글 추천 https://t.co/abc123',
+              author: { name: 'TestUser' },
+              media: {
+                external: {
+                  url: 'https://blog.example.com/deep-article',
+                },
+              },
+            },
+          }),
+      });
+
+      // article-extractor succeeds for the external media URL
+      mockedExtract.mockResolvedValue({
+        title: 'Deep Article',
+        content:
+          '<p>Deep article content from the link card that is long enough to pass the minimum length validation.</p>',
+        url: 'https://blog.example.com/deep-article',
+      });
+
+      const result = await service.extract(
+        'https://x.com/user/status/111111',
+      );
+
+      expect(result.url).toBe('https://blog.example.com/deep-article');
+      expect(result.content).toContain('Deep article content');
+      // article-extractor should be called with the external URL first
+      expect(mockedExtract).toHaveBeenCalledWith(
+        'https://blog.example.com/deep-article',
+      );
+    });
+
+    it('should filter out Twitter-internal URLs (pic.twitter.com, t.co) from tweet text', async () => {
+      // fxtwitter returns tweet with only internal URLs
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            tweet: {
+              text: '사진 공유합니다 https://pic.twitter.com/abc123 https://t.co/xyz789',
+              author: { name: 'TestUser' },
+            },
+          }),
+      });
+
+      const result = await service.extract(
+        'https://x.com/user/status/222222',
+      );
+
+      // Should fall back to tweet text since all URLs are Twitter-internal
+      expect(result.url).toBe('https://x.com/user/status/222222');
+      expect(result.content).toContain('사진 공유합니다');
+      expect(result.title).toContain('TestUser');
+      // article-extractor should NOT have been called (no external URLs to try)
+      expect(mockedExtract).not.toHaveBeenCalled();
+    });
+
+    it('should extract article from quoted tweet external URL', async () => {
+      // fxtwitter returns tweet that quotes another tweet with an external link
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            tweet: {
+              text: '이거 정말 좋은 글이네요',
+              author: { name: 'QuoterUser' },
+              quote: {
+                text: '새 블로그 포스트를 올렸습니다',
+                media: {
+                  external: {
+                    url: 'https://blog.example.com/new-post',
+                  },
+                },
+              },
+            },
+          }),
+      });
+
+      // article-extractor succeeds for the quoted tweet's external URL
+      mockedExtract.mockResolvedValue({
+        title: 'New Blog Post',
+        content:
+          '<p>Blog post content from quoted tweet that is long enough to pass the minimum length validation check.</p>',
+        url: 'https://blog.example.com/new-post',
+      });
+
+      const result = await service.extract(
+        'https://x.com/user/status/333333',
+      );
+
+      expect(result.url).toBe('https://blog.example.com/new-post');
+      expect(result.content).toContain('Blog post content from quoted tweet');
+    });
+
+    it('should strip trailing punctuation from URLs extracted from tweet text', async () => {
+      // fxtwitter returns tweet text with URL followed by period
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            tweet: {
+              text: '이 글을 읽어보세요. https://example.com/article.',
+              author: { name: 'TestUser' },
+            },
+          }),
+      });
+
+      // article-extractor succeeds for the cleaned URL
+      mockedExtract.mockResolvedValue({
+        title: 'Article',
+        content:
+          '<p>Article content that is long enough to pass the minimum length validation check for extraction.</p>',
+        url: 'https://example.com/article',
+      });
+
+      const result = await service.extract(
+        'https://x.com/user/status/444444',
+      );
+
+      expect(result.url).toBe('https://example.com/article');
+      // article-extractor should be called with the clean URL (no trailing period)
+      expect(mockedExtract).toHaveBeenCalledWith(
+        'https://example.com/article',
+      );
+    });
+
+    it('should extract article from quoted tweet text URL when no external media', async () => {
+      // fxtwitter returns tweet quoting another tweet that has a URL in its text
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            tweet: {
+              text: '흥미로운 내용',
+              author: { name: 'QuoterUser' },
+              quote: {
+                text: '새 아티클 공유 https://example.com/shared-article',
+              },
+            },
+          }),
+      });
+
+      mockedExtract.mockResolvedValue({
+        title: 'Shared Article',
+        content:
+          '<p>Shared article content from quoted tweet text URL that is long enough to pass validation.</p>',
+        url: 'https://example.com/shared-article',
+      });
+
+      const result = await service.extract(
+        'https://x.com/user/status/555555',
+      );
+
+      expect(result.url).toBe('https://example.com/shared-article');
+      expect(result.content).toContain('Shared article content');
+    });
   });
 });

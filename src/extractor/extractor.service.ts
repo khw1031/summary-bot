@@ -197,14 +197,44 @@ export class ExtractorService {
         return null;
       }
 
-      // Extract URLs from tweet text
-      const urls = this.extractUrls(tweetText);
+      // Collect candidate URLs in priority order
+      const candidateUrls: string[] = [];
+
+      // 1. External media URL from link card (highest priority)
+      const externalUrl = data.tweet?.media?.external?.url;
+      if (externalUrl && !this.isTwitterInternalUrl(externalUrl)) {
+        this.logger.debug(`Found external media URL: ${externalUrl}`);
+        candidateUrls.push(externalUrl);
+      }
+
+      // 2. Quoted tweet's external URL
+      const quoteExternalUrl = data.tweet?.quote?.media?.external?.url;
+      if (quoteExternalUrl && !this.isTwitterInternalUrl(quoteExternalUrl)) {
+        this.logger.debug(`Found quoted tweet external URL: ${quoteExternalUrl}`);
+        candidateUrls.push(quoteExternalUrl);
+      }
+
+      // 3. URLs extracted from tweet text (filtered)
+      const textUrls = this.extractUrls(tweetText)
+        .filter((u) => !this.isTwitterInternalUrl(u));
+      candidateUrls.push(...textUrls);
+
+      // 4. URLs from quoted tweet text
+      const quoteText: string = data.tweet?.quote?.text || '';
+      if (quoteText) {
+        const quoteTextUrls = this.extractUrls(quoteText)
+          .filter((u) => !this.isTwitterInternalUrl(u));
+        candidateUrls.push(...quoteTextUrls);
+      }
+
+      // Deduplicate while preserving order
+      const uniqueUrls = [...new Set(candidateUrls)];
       this.logger.debug(
-        `Found ${urls.length} URL(s) in tweet: ${urls.join(', ')}`,
+        `Found ${uniqueUrls.length} candidate URL(s): ${uniqueUrls.join(', ')}`,
       );
 
-      // Try to extract article from each inner URL
-      for (const innerUrl of urls) {
+      // Try to extract article from each candidate URL
+      for (const innerUrl of uniqueUrls) {
         const articleResult = await this.tryArticleExtractor(innerUrl);
         if (articleResult) {
           this.logger.log(
@@ -253,7 +283,31 @@ export class ExtractorService {
 
   private extractUrls(text: string): string[] {
     const urlRegex = /https?:\/\/[^\s)]+/g;
-    return text.match(urlRegex) || [];
+    const raw = text.match(urlRegex) || [];
+
+    return raw
+      .map((u) => u.replace(/[.,;:!?'"]+$/, '')) // strip trailing punctuation
+      .filter((u, i, arr) => arr.indexOf(u) === i); // deduplicate
+  }
+
+  private isTwitterInternalUrl(url: string): boolean {
+    try {
+      const { hostname } = new URL(url);
+      const internalHosts = [
+        'x.com',
+        'twitter.com',
+        'pic.twitter.com',
+        'pbs.twimg.com',
+        'video.twimg.com',
+        'abs.twimg.com',
+        't.co',
+      ];
+      return internalHosts.some(
+        (h) => hostname === h || hostname.endsWith(`.${h}`),
+      );
+    } catch {
+      return false;
+    }
   }
 
   private getOembedUrl(url: string): string | null {

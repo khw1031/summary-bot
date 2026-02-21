@@ -1,5 +1,3 @@
-[English](./README.md) | [日本語](./README.ja.md) | [中文](./README.zh.md)
-
 # Summary Bot
 
 > Telegram 봇으로 URL 또는 텍스트를 보내면 LLM이 자동으로 요약하고, GitHub 저장소에 마크다운 파일로 저장하는 NestJS 애플리케이션
@@ -31,7 +29,7 @@ Telegram → TelegramUpdate (Handler)
 |------|------|
 | `TelegramModule` | Telegram Webhook 수신 및 사용자 인터랙션 처리 |
 | `SummaryModule` | 요약 파이프라인 오케스트레이션 및 캐시 관리 |
-| `ExtractorModule` | URL에서 콘텐츠 추출 (article-extractor, raw fetch, oEmbed) |
+| `ExtractorModule` | URL에서 콘텐츠 추출 (Jina Reader API) |
 | `LlmModule` | LLM 프로바이더 관리 및 Fallback 로직 |
 | `GithubModule` | 마크다운 생성 및 GitHub API를 통한 파일 저장 |
 | `HealthModule` | 헬스 체크 엔드포인트 (`GET /health`) |
@@ -40,8 +38,8 @@ Telegram → TelegramUpdate (Handler)
 
 1. 사용자가 Telegram으로 URL 또는 텍스트를 전송
 2. `ExtractorService`가 입력을 분석:
-   - **URL인 경우**: 웹 페이지 본문을 추출 (article-extractor → raw fetch → oEmbed 순으로 시도)
-   - **X/Twitter URL인 경우**: fxtwitter API로 트윗 내 링크를 해석한 뒤 해당 URL의 본문을 추출
+   - **URL인 경우**: Jina Reader API로 웹 페이지 본문을 추출
+   - **X/Twitter URL인 경우**: fxtwitter API로 트윗 내 링크를 해석한 뒤 Jina Reader API로 해당 URL의 본문을 추출
    - **텍스트인 경우**: 원문 그대로 사용
 3. `LlmService`가 추출된 콘텐츠를 LLM으로 요약:
    - 한글 제목, 영문 slug, 카테고리, 태그, 키워드, 개념 분류, 인사이트, 마크다운 요약 생성
@@ -110,7 +108,7 @@ source: "https://example.com/article"
 - **Telegram**: Telegraf + nestjs-telegraf (Webhook 모드)
 - **LLM**: Anthropic Claude (`claude-sonnet-4-20250514`) / Google Gemini (`gemini-2.5-pro`)
 - **GitHub**: Octokit REST API
-- **콘텐츠 추출**: @extractus/article-extractor
+- **콘텐츠 추출**: Jina Reader API
 - **패키지 매니저**: pnpm 9.15
 - **배포**: Docker (Multi-stage build)
 
@@ -152,6 +150,7 @@ cp .env.example .env
 | `GITHUB_TOKEN` | O | GitHub Personal Access Token | - |
 | `GITHUB_REPO` | O | 요약을 저장할 GitHub 저장소 (예: `owner/repo`) | - |
 | `SUMMARY_DIR` | X | 저장소 내 요약 파일 디렉토리 | `98-summaries` |
+| `JINA_READER_API_KEY` | X | Jina Reader API 키 (높은 Rate Limit용) | - |
 | `LLM_PROVIDER` | X | Primary LLM 프로바이더 (`claude` 또는 `gemini`) | `gemini` |
 | `PORT` | X | 서버 포트 | `3000` |
 

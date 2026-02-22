@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { LlmProvider, SummaryResult } from '../llm.interface';
+import { LlmProvider, SummaryResult, normalizeInsights } from '../llm.interface';
 import { SUMMARY_SYSTEM_PROMPT, SUMMARY_USER_PROMPT } from '../prompts';
 
 @Injectable()
@@ -35,6 +35,7 @@ export class GeminiProvider implements LlmProvider {
     text = text.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
 
     const result: SummaryResult = JSON.parse(text);
+    result.insights = normalizeInsights(result.insights);
     this.logger.log(`Summary generated: ${result.title}`);
     return result;
   }

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Anthropic from '@anthropic-ai/sdk';
-import { LlmProvider, SummaryResult } from '../llm.interface';
+import { LlmProvider, SummaryResult, normalizeInsights } from '../llm.interface';
 import { SUMMARY_SYSTEM_PROMPT, SUMMARY_USER_PROMPT } from '../prompts';
 
 @Injectable()
@@ -36,6 +36,7 @@ export class ClaudeProvider implements LlmProvider {
     }
 
     const result: SummaryResult = JSON.parse(textBlock.text);
+    result.insights = normalizeInsights(result.insights);
     this.logger.log(`Summary generated: ${result.title}`);
     return result;
   }

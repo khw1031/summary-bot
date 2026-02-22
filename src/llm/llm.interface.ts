@@ -21,3 +21,14 @@ export interface SummaryResult {
 export interface LlmProvider {
   summarize(content: string): Promise<SummaryResult>;
 }
+
+export function normalizeInsights(insights: unknown[]): string[] {
+  return insights.map((item) => {
+    if (typeof item === 'string') return item;
+    if (item && typeof item === 'object' && 'title' in item && 'description' in item) {
+      const { title, description } = item as { title: string; description: string };
+      return `**${title}**: ${description}`;
+    }
+    return JSON.stringify(item);
+  });
+}

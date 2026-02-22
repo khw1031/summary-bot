@@ -78,7 +78,9 @@ export class GithubService {
     // 핵심 인사이트
     lines.push('## 핵심 인사이트', '');
     for (const insight of result.insights) {
-      lines.push(`- ${insight}`);
+      const text =
+        typeof insight === 'string' ? insight : JSON.stringify(insight);
+      lines.push(`- ${text}`);
     }
     lines.push('');
 

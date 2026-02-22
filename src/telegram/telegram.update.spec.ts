@@ -10,6 +10,7 @@ import { SummaryResult } from '../llm/llm.interface';
 
 const mockSummaryResult: SummaryResult = {
   title: '테스트 제목',
+  oneline: '테스트는 소프트웨어 품질을 보증하는 가장 효과적인 방법이다.',
   description: 'test-title',
   category: 'Tech',
   tags: ['tag1', 'tag2', 'tag3'],
@@ -18,9 +19,15 @@ const mockSummaryResult: SummaryResult = {
     upper: ['소프트웨어 개발'],
     lower: ['단위 테스트', '통합 테스트'],
     related: ['TDD', 'CI/CD'],
+    prerequisite: ['프로그래밍 기초'],
+    followup: ['테스트 자동화'],
   },
-  insights: ['테스트는 소프트웨어 품질의 핵심이다.'],
-  summary: '# Summary\n\nThis is a test summary.',
+  quotes: [
+    { text: 'Tests are the cornerstone of software quality.', context: '테스트의 근본적 역할을 강조하는 문장이다.' },
+  ],
+  insights: ['**품질의 핵심**: 테스트는 소프트웨어 품질의 핵심이다.'],
+  decoded: '소프트웨어 테스트란 프로그램이 제대로 동작하는지 미리 확인하는 작업이다. 문제를 사전에 발견해 품질을 보장한다.',
+  summary: '# Summary\n\n소프트웨어 테스트는 품질을 보증하는 핵심 활동이다. 단위 테스트와 통합 테스트를 체계적으로 구성하면 버그를 사전에 차단할 수 있다.',
 };
 
 describe('TelegramUpdate', () => {
@@ -85,8 +92,11 @@ describe('TelegramUpdate', () => {
       expect(ctx.reply).toHaveBeenCalledTimes(1);
 
       const replyCall = ctx.reply.mock.calls[0];
-      expect(replyCall[0]).toContain('테스트 제목');
-      expect(replyCall[0]).toContain('Tech');
+      expect(replyCall[0]).toContain('✅ 테스트 제목');
+      expect(replyCall[0]).toContain(mockSummaryResult.oneline);
+      expect(replyCall[0]).toContain('GitHub에서 보기');
+      expect(replyCall[0]).not.toContain('Tech');
+      expect(replyCall[0]).not.toContain('#tag1');
       expect(replyCall[1]).toHaveProperty('parse_mode', 'HTML');
       expect(replyCall[1]).toHaveProperty('reply_markup');
     });

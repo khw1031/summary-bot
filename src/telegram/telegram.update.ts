@@ -168,23 +168,9 @@ export class TelegramUpdate {
   }
 
   private buildPreview(result: SummaryResult, githubUrl: string): string {
-    const tags = result.tags.map((t) => `#${t}`).join(' ');
-    const keywords = result.keywords.map((k) => `#${k}`).join(' ');
-    const summaryPreview =
-      result.summary.length > 300
-        ? result.summary.substring(0, 300) + '...'
-        : result.summary;
-
     const lines = [
-      `<b>${this.escapeHtml(result.title)}</b>`,
-      `📂 ${this.escapeHtml(result.category)} | ${this.escapeHtml(tags)}`,
-      '',
-      this.escapeHtml(summaryPreview),
-      '',
-      '<b>💡 핵심 인사이트</b>',
-      ...result.insights.map((i) => `• ${this.escapeHtml(i)}`),
-      '',
-      `🔑 ${this.escapeHtml(keywords)}`,
+      `✅ ${this.escapeHtml(result.title)}`,
+      this.escapeHtml(result.oneline),
       '',
       `<a href="${githubUrl}">GitHub에서 보기</a>`,
     ];

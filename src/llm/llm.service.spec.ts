@@ -13,6 +13,7 @@ describe('LlmService', () => {
 
   const mockResult: SummaryResult = {
     title: '테스트 제목',
+    oneline: '테스트는 소프트웨어 품질을 보증하는 핵심 활동이다.',
     description: 'test-title',
     category: 'Tech',
     tags: ['test'],
@@ -21,9 +22,15 @@ describe('LlmService', () => {
       upper: ['소프트웨어 개발'],
       lower: ['단위 테스트', '통합 테스트'],
       related: ['TDD', 'CI/CD'],
+      prerequisite: ['프로그래밍 기초'],
+      followup: ['테스트 자동화'],
     },
-    insights: ['테스트는 소프트웨어 품질 보증의 핵심이다.'],
-    summary: '## 요약',
+    quotes: [
+      { text: 'Testing is the backbone of quality assurance.', context: '테스트의 근본적 역할을 강조하는 문장이다.' },
+    ],
+    insights: ['**품질 보증의 핵심**: 테스트는 소프트웨어 품질 보증의 핵심이다.'],
+    decoded: '소프트웨어 테스트란 프로그램이 제대로 동작하는지 미리 확인하는 작업이다. 마치 자동차 출고 전 검수처럼, 문제를 사전에 발견해 품질을 보장한다.',
+    summary: '## 요약\n\n소프트웨어 테스트는 품질을 보증하는 핵심 활동이다. 단위 테스트와 통합 테스트를 체계적으로 구성하면 버그를 사전에 차단할 수 있다.',
   };
 
   beforeEach(async () => {

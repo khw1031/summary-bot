@@ -30,13 +30,34 @@ export class TelegramUpdate {
     return this.allowedChatIds.includes(String(chatId));
   }
 
+  private async withRetry<T>(
+    fn: () => Promise<T>,
+    maxRetries = 2,
+    delayMs = 1000,
+  ): Promise<T> {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await fn();
+      } catch (error) {
+        if (attempt === maxRetries) throw error;
+        this.logger.warn(
+          `Telegram API call failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${delayMs}ms...`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
+    throw new Error('Unreachable');
+  }
+
   @Command('start')
   async onStart(ctx: Context) {
     const chatId = ctx.chat.id;
-    await ctx.reply(
-      `Your chat ID: <code>${chatId}</code>\n\n` +
-        '이 값을 TELEGRAM_ALLOWED_CHAT_IDS 환경변수에 설정하면 본인만 봇을 사용할 수 있습니다.',
-      { parse_mode: 'HTML' },
+    await this.withRetry(() =>
+      ctx.reply(
+        `Your chat ID: <code>${chatId}</code>\n\n` +
+          '이 값을 TELEGRAM_ALLOWED_CHAT_IDS 환경변수에 설정하면 본인만 봇을 사용할 수 있습니다.',
+        { parse_mode: 'HTML' },
+      ),
     );
   }
 
@@ -47,7 +68,7 @@ export class TelegramUpdate {
     if (!this.isAllowed(ctx.chat.id)) return;
 
     try {
-      await ctx.sendChatAction('typing');
+      await this.withRetry(() => ctx.sendChatAction('typing'));
 
       const { cacheKey, result, githubUrl } = await this.summaryService.processMessage(text);
       this.originalTexts.delete(cacheKey);
@@ -57,7 +78,9 @@ export class TelegramUpdate {
         Markup.button.callback('삭제', `delete:${cacheKey}`),
       ]);
 
-      await ctx.reply(preview, { parse_mode: 'HTML', ...keyboard });
+      await this.withRetry(() =>
+        ctx.reply(preview, { parse_mode: 'HTML', ...keyboard }),
+      );
     } catch (error) {
       this.logger.error(`Failed to process message: ${error.message}`, error.stack);
 
@@ -67,7 +90,13 @@ export class TelegramUpdate {
         Markup.button.callback('재시도', `retry:${retryKey}`),
       ]);
 
-      await ctx.reply('요약 처리 중 오류가 발생했습니다.', keyboard);
+      try {
+        await this.withRetry(() =>
+          ctx.reply('요약 처리 중 오류가 발생했습니다.', keyboard),
+        );
+      } catch (replyError) {
+        this.logger.error(`Failed to send error reply: ${replyError.message}`);
+      }
     }
   }
 
@@ -79,12 +108,14 @@ export class TelegramUpdate {
 
     const originalText = this.originalTexts.get(retryKey);
     if (!originalText) {
-      await ctx.answerCbQuery('재시도 정보가 만료되었습니다.');
+      await this.withRetry(() =>
+        ctx.answerCbQuery('재시도 정보가 만료되었습니다.'),
+      );
       return;
     }
 
     try {
-      await ctx.answerCbQuery('재시도 중...');
+      await this.withRetry(() => ctx.answerCbQuery('재시도 중...'));
       this.originalTexts.delete(retryKey);
 
       const { cacheKey, result, githubUrl } =
@@ -95,13 +126,21 @@ export class TelegramUpdate {
         Markup.button.callback('삭제', `delete:${cacheKey}`),
       ]);
 
-      await ctx.editMessageText(preview, {
-        parse_mode: 'HTML',
-        ...keyboard,
-      });
+      await this.withRetry(() =>
+        ctx.editMessageText(preview, {
+          parse_mode: 'HTML',
+          ...keyboard,
+        }),
+      );
     } catch (error) {
       this.logger.error(`Failed to retry: ${error.message}`, error.stack);
-      await ctx.answerCbQuery('재시도에 실패했습니다.');
+      try {
+        await this.withRetry(() =>
+          ctx.answerCbQuery('재시도에 실패했습니다.'),
+        );
+      } catch (replyError) {
+        this.logger.error(`Failed to send retry error reply: ${replyError.message}`);
+      }
     }
   }
 
@@ -112,13 +151,19 @@ export class TelegramUpdate {
     if (!cacheKey) return;
 
     try {
-      await ctx.answerCbQuery('삭제됨');
+      await this.withRetry(() => ctx.answerCbQuery('삭제됨'));
       this.summaryService.discard(cacheKey);
       this.originalTexts.delete(cacheKey);
-      await ctx.deleteMessage();
+      await this.withRetry(() => ctx.deleteMessage());
     } catch (error) {
       this.logger.error(`Failed to delete: ${error.message}`, error.stack);
-      await ctx.answerCbQuery('삭제 중 오류가 발생했습니다.');
+      try {
+        await this.withRetry(() =>
+          ctx.answerCbQuery('삭제 중 오류가 발생했습니다.'),
+        );
+      } catch (replyError) {
+        this.logger.error(`Failed to send delete error reply: ${replyError.message}`);
+      }
     }
   }
 

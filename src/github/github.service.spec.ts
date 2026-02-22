@@ -12,6 +12,10 @@ jest.mock('@octokit/rest', () => ({
           },
         },
       }),
+      getContent: jest.fn().mockResolvedValue({
+        data: { sha: 'abc123sha' },
+      }),
+      deleteFile: jest.fn().mockResolvedValue({}),
     },
   })),
 }));
@@ -81,12 +85,13 @@ describe('GithubService', () => {
     };
     const sourceUrl = 'https://example.com/article';
 
-    it('should save markdown to GitHub and return html_url', async () => {
-      const url = await service.saveMarkdown(summaryResult, sourceUrl);
+    it('should save markdown to GitHub and return htmlUrl and filePath', async () => {
+      const { htmlUrl, filePath } = await service.saveMarkdown(summaryResult, sourceUrl);
 
-      expect(url).toBe(
+      expect(htmlUrl).toBe(
         'https://github.com/owner/repo/blob/main/98-summaries/2026-02-10-test-slug.md',
       );
+      expect(filePath).toMatch(/^98-summaries\/\d{4}-\d{2}-\d{2}-test-slug\.md$/);
 
       expect(
         mockOctokit.repos.createOrUpdateFileContents,
@@ -130,8 +135,40 @@ describe('GithubService', () => {
         data: { content: null },
       });
 
-      const url = await service.saveMarkdown(summaryResult, sourceUrl);
-      expect(url).toBe('');
+      const { htmlUrl } = await service.saveMarkdown(summaryResult, sourceUrl);
+      expect(htmlUrl).toBe('');
+    });
+  });
+
+  describe('deleteMarkdown', () => {
+    const filePath = '98-summaries/2026-02-10-test-slug.md';
+
+    it('should fetch SHA and delete the file', async () => {
+      await service.deleteMarkdown(filePath);
+
+      expect(mockOctokit.repos.getContent).toHaveBeenCalledWith({
+        owner: 'owner',
+        repo: 'repo',
+        path: filePath,
+      });
+
+      expect(mockOctokit.repos.deleteFile).toHaveBeenCalledWith({
+        owner: 'owner',
+        repo: 'repo',
+        path: filePath,
+        message: `docs: remove summary - ${filePath}`,
+        sha: 'abc123sha',
+      });
+    });
+
+    it('should propagate error when getContent fails', async () => {
+      mockOctokit.repos.getContent.mockRejectedValueOnce(
+        new Error('Not Found'),
+      );
+
+      await expect(service.deleteMarkdown(filePath)).rejects.toThrow(
+        'Not Found',
+      );
     });
   });
 });

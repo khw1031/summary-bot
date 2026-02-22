@@ -51,7 +51,7 @@ describe('SummaryService', () => {
         },
         {
           provide: GithubService,
-          useValue: { saveMarkdown: jest.fn() },
+          useValue: { saveMarkdown: jest.fn(), deleteMarkdown: jest.fn() },
         },
       ],
     }).compile();
@@ -70,9 +70,10 @@ describe('SummaryService', () => {
         url: 'https://example.com/article',
       });
       llmService.summarize.mockResolvedValue(mockSummaryResult);
-      githubService.saveMarkdown.mockResolvedValue(
-        'https://github.com/user/repo/blob/main/file.md',
-      );
+      githubService.saveMarkdown.mockResolvedValue({
+        htmlUrl: 'https://github.com/user/repo/blob/main/file.md',
+        filePath: '98-summaries/2026-02-10-test-slug.md',
+      });
 
       const { cacheKey, result, githubUrl } = await service.processMessage(
         'https://example.com/article',
@@ -100,9 +101,10 @@ describe('SummaryService', () => {
         url: '',
       });
       llmService.summarize.mockResolvedValue(mockSummaryResult);
-      githubService.saveMarkdown.mockResolvedValue(
-        'https://github.com/user/repo/blob/main/file.md',
-      );
+      githubService.saveMarkdown.mockResolvedValue({
+        htmlUrl: 'https://github.com/user/repo/blob/main/file.md',
+        filePath: '98-summaries/2026-02-10-test-slug.md',
+      });
 
       const { cacheKey, result, githubUrl } = await service.processMessage(
         'Some plain text to summarize',
@@ -128,9 +130,10 @@ describe('SummaryService', () => {
         url: 'https://example.com',
       });
       llmService.summarize.mockResolvedValue(mockSummaryResult);
-      githubService.saveMarkdown.mockResolvedValue(
-        'https://github.com/user/repo/blob/main/file.md',
-      );
+      githubService.saveMarkdown.mockResolvedValue({
+        htmlUrl: 'https://github.com/user/repo/blob/main/file.md',
+        filePath: '98-summaries/2026-02-10-test-slug.md',
+      });
 
       const { cacheKey } = await service.processMessage(
         'https://example.com',
@@ -162,7 +165,10 @@ describe('SummaryService', () => {
         url: 'https://original.com',
       });
       llmService.summarize.mockResolvedValue(mockSummaryResult);
-      githubService.saveMarkdown.mockResolvedValue('https://github.com/...');
+      githubService.saveMarkdown.mockResolvedValue({
+        htmlUrl: 'https://github.com/...',
+        filePath: '98-summaries/2026-02-10-test-slug.md',
+      });
 
       const { cacheKey } = await service.processMessage(
         'https://original.com',
@@ -184,7 +190,10 @@ describe('SummaryService', () => {
         url: '',
       });
       llmService.summarize.mockResolvedValue(mockSummaryResult);
-      githubService.saveMarkdown.mockResolvedValue('https://github.com/...');
+      githubService.saveMarkdown.mockResolvedValue({
+        htmlUrl: 'https://github.com/...',
+        filePath: '98-summaries/2026-02-10-test-slug.md',
+      });
 
       const first = await service.processMessage('text');
       const second = await service.regenerate('text');
@@ -195,17 +204,46 @@ describe('SummaryService', () => {
   });
 
   describe('discard', () => {
-    it('should remove entry from cache', async () => {
+    it('should delete GitHub file and remove entry from cache', async () => {
       extractorService.extract.mockResolvedValue({
         title: '',
         content: 'text',
         url: '',
       });
       llmService.summarize.mockResolvedValue(mockSummaryResult);
-      githubService.saveMarkdown.mockResolvedValue('https://github.com/...');
+      githubService.saveMarkdown.mockResolvedValue({
+        htmlUrl: 'https://github.com/...',
+        filePath: '98-summaries/2026-02-10-test-slug.md',
+      });
+      githubService.deleteMarkdown.mockResolvedValue(undefined);
 
       const { cacheKey } = await service.processMessage('text');
-      service.discard(cacheKey);
+      await service.discard(cacheKey);
+
+      expect(githubService.deleteMarkdown).toHaveBeenCalledWith(
+        '98-summaries/2026-02-10-test-slug.md',
+      );
+
+      await expect(
+        service.saveToGithub(cacheKey, ''),
+      ).rejects.toThrow('Cache entry not found or expired');
+    });
+
+    it('should still remove cache entry when GitHub delete fails', async () => {
+      extractorService.extract.mockResolvedValue({
+        title: '',
+        content: 'text',
+        url: '',
+      });
+      llmService.summarize.mockResolvedValue(mockSummaryResult);
+      githubService.saveMarkdown.mockResolvedValue({
+        htmlUrl: 'https://github.com/...',
+        filePath: '98-summaries/2026-02-10-test-slug.md',
+      });
+      githubService.deleteMarkdown.mockRejectedValue(new Error('Not Found'));
+
+      const { cacheKey } = await service.processMessage('text');
+      await service.discard(cacheKey);
 
       await expect(
         service.saveToGithub(cacheKey, ''),
@@ -221,7 +259,10 @@ describe('SummaryService', () => {
         url: '',
       });
       llmService.summarize.mockResolvedValue(mockSummaryResult);
-      githubService.saveMarkdown.mockResolvedValue('https://github.com/...');
+      githubService.saveMarkdown.mockResolvedValue({
+        htmlUrl: 'https://github.com/...',
+        filePath: '98-summaries/2026-02-10-test-slug.md',
+      });
 
       const { cacheKey } = await service.processMessage('text');
 

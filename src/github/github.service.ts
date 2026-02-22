@@ -26,18 +26,18 @@ export class GithubService {
   async saveMarkdown(
     result: SummaryResult,
     sourceUrl: string,
-  ): Promise<string> {
+  ): Promise<{ htmlUrl: string; filePath: string }> {
     const today = this.getToday();
-    const path = `${this.summaryDir}/${today}-${result.description}.md`;
+    const filePath = `${this.summaryDir}/${today}-${result.description}.md`;
     const content = this.buildMarkdown(result, sourceUrl, today);
     const message = `docs: add summary - ${result.title}`;
 
-    this.logger.log(`Saving markdown to ${path}`);
+    this.logger.log(`Saving markdown to ${filePath}`);
 
     const response = await this.octokit.repos.createOrUpdateFileContents({
       owner: this.owner,
       repo: this.repo,
-      path,
+      path: filePath,
       message,
       content: Buffer.from(content).toString('base64'),
     });
@@ -45,7 +45,29 @@ export class GithubService {
     const htmlUrl = response.data.content?.html_url ?? '';
     this.logger.log(`Markdown saved: ${htmlUrl}`);
 
-    return htmlUrl;
+    return { htmlUrl, filePath };
+  }
+
+  async deleteMarkdown(filePath: string): Promise<void> {
+    this.logger.log(`Deleting markdown at ${filePath}`);
+
+    const { data } = await this.octokit.repos.getContent({
+      owner: this.owner,
+      repo: this.repo,
+      path: filePath,
+    });
+
+    const sha = (data as { sha: string }).sha;
+
+    await this.octokit.repos.deleteFile({
+      owner: this.owner,
+      repo: this.repo,
+      path: filePath,
+      message: `docs: remove summary - ${filePath}`,
+      sha,
+    });
+
+    this.logger.log(`Markdown deleted: ${filePath}`);
   }
 
   private buildMarkdown(

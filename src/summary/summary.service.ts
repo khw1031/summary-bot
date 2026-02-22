@@ -9,6 +9,7 @@ interface CacheEntry {
   result: SummaryResult;
   sourceUrl: string;
   githubUrl: string;
+  filePath: string;
   expiresAt: number;
 }
 
@@ -38,13 +39,15 @@ export class SummaryService {
     );
 
     const result = await this.llmService.summarize(extracted.content);
-    const githubUrl = await this.githubService.saveMarkdown(result, sourceUrl);
+    const { htmlUrl: githubUrl, filePath } =
+      await this.githubService.saveMarkdown(result, sourceUrl);
     const cacheKey = randomUUID();
 
     this.cache.set(cacheKey, {
       result,
       sourceUrl,
       githubUrl,
+      filePath,
       expiresAt: Date.now() + CACHE_TTL,
     });
 
@@ -59,7 +62,7 @@ export class SummaryService {
       throw new Error(`Cache entry not found or expired: ${cacheKey}`);
     }
 
-    const url = await this.githubService.saveMarkdown(
+    const { htmlUrl } = await this.githubService.saveMarkdown(
       entry.result,
       sourceUrl || entry.sourceUrl,
     );
@@ -67,7 +70,7 @@ export class SummaryService {
     this.cache.delete(cacheKey);
     this.logger.log(`Saved to GitHub and removed cache: ${cacheKey}`);
 
-    return url;
+    return htmlUrl;
   }
 
   async regenerate(
@@ -77,7 +80,19 @@ export class SummaryService {
     return this.processMessage(text);
   }
 
-  discard(cacheKey: string): void {
+  async discard(cacheKey: string): Promise<void> {
+    const entry = this.cache.get(cacheKey);
+
+    if (entry?.filePath) {
+      try {
+        await this.githubService.deleteMarkdown(entry.filePath);
+      } catch (error) {
+        this.logger.warn(
+          `Failed to delete GitHub file ${entry.filePath}: ${error.message}`,
+        );
+      }
+    }
+
     this.cache.delete(cacheKey);
     this.logger.log(`Discarded cache entry: ${cacheKey}`);
   }

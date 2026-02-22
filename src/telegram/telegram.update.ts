@@ -152,7 +152,7 @@ export class TelegramUpdate {
 
     try {
       await this.withRetry(() => ctx.answerCbQuery('삭제됨'));
-      this.summaryService.discard(cacheKey);
+      await this.summaryService.discard(cacheKey);
       this.originalTexts.delete(cacheKey);
       await this.withRetry(() => ctx.deleteMessage());
     } catch (error) {

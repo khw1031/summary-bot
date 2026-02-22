@@ -58,7 +58,7 @@ describe('TelegramUpdate', () => {
             processMessage: jest.fn(),
             saveToGithub: jest.fn(),
             regenerate: jest.fn(),
-            discard: jest.fn(),
+            discard: jest.fn().mockResolvedValue(undefined),
           },
         },
         {

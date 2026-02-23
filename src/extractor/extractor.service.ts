@@ -7,6 +7,10 @@ export interface ExtractResult {
   url: string;
 }
 
+const MIN_CONTENT_LENGTH = 200;
+const MAX_CONTENT_LENGTH = 15_000;
+const RETRY_DELAY_MS = 2_000;
+
 @Injectable()
 export class ExtractorService {
   private readonly logger = new Logger(ExtractorService.name);
@@ -30,6 +34,18 @@ export class ExtractorService {
   }
 
   private async tryJinaReader(url: string): Promise<ExtractResult | null> {
+    const result = await this.fetchJinaReader(url);
+    if (result) return result;
+
+    this.logger.log(
+      `Jina Reader returned insufficient content, retrying in ${RETRY_DELAY_MS}ms...`,
+    );
+    await this.delay(RETRY_DELAY_MS);
+
+    return this.fetchJinaReader(url);
+  }
+
+  private async fetchJinaReader(url: string): Promise<ExtractResult | null> {
     try {
       const jinaUrl = `https://r.jina.ai/${url}`;
       const headers: Record<string, string> = { Accept: 'application/json' };
@@ -46,24 +62,29 @@ export class ExtractorService {
       });
 
       if (!response.ok) {
-        this.logger.warn(`Jina Reader failed for ${url}: HTTP ${response.status}`);
+        this.logger.warn(
+          `Jina Reader failed for ${url}: HTTP ${response.status}`,
+        );
         return null;
       }
 
       const json = await response.json();
-      const content: string = json.data?.content || '';
+      const rawContent: string = json.data?.content || '';
       const title: string = json.data?.title || '';
+      const description: string = json.data?.description || '';
 
-      if (content.length < 50) {
+      const content = this.buildContent(rawContent, title, description);
+
+      if (content.length < MIN_CONTENT_LENGTH) {
         this.logger.warn(
-          `Jina Reader returned too little content for ${url} (${content.length} chars)`,
+          `Jina Reader returned insufficient content for ${url} (${content.length} chars)`,
         );
         return null;
       }
 
       const truncated =
-        content.length > 15_000
-          ? content.slice(0, 15_000) + '\n\n[...truncated]'
+        content.length > MAX_CONTENT_LENGTH
+          ? content.slice(0, MAX_CONTENT_LENGTH) + '\n\n[...truncated]'
           : content;
 
       this.logger.debug(
@@ -74,6 +95,29 @@ export class ExtractorService {
       this.logger.warn(`Jina Reader failed for ${url}: ${error.message}`);
     }
     return null;
+  }
+
+  private buildContent(
+    content: string,
+    title: string,
+    description: string,
+  ): string {
+    if (content.length >= MIN_CONTENT_LENGTH) {
+      return content;
+    }
+
+    this.logger.debug(
+      `Content too short (${content.length} chars), supplementing with title/description`,
+    );
+
+    const parts = [title, description, content].filter(
+      (part) => part.length > 0,
+    );
+    return parts.join('\n\n');
+  }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   private isUrl(input: string): boolean {

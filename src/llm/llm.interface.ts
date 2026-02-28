@@ -36,3 +36,16 @@ export function normalizeInsights(insights: unknown[]): string[] {
     return JSON.stringify(item);
   });
 }
+
+export function normalizePerspectives(value: unknown): string | undefined {
+  if (value == null) return undefined;
+  if (typeof value === 'string') return value;
+  if (typeof value !== 'object') return String(value);
+
+  const obj = value as Record<string, unknown>;
+  const sections = Object.entries(obj).map(([key, content]) => {
+    const heading = key.startsWith('#') ? key : `### ${key}`;
+    return `${heading}\n\n${String(content)}`;
+  });
+  return sections.join('\n\n');
+}

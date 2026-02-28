@@ -168,14 +168,20 @@ export class TelegramUpdate {
   }
 
   private buildPreview(result: SummaryResult, githubUrl: string): string {
-    const lines = [
-      `✅ ${this.escapeHtml(result.title)}`,
-      this.escapeHtml(result.oneline),
+    const title = this.escapeHtml(result.title);
+    const decoded = this.escapeHtml(result.decoded);
+    const maxLen = 3800;
+    const text = decoded.length > maxLen
+      ? decoded.slice(0, maxLen) + '...'
+      : decoded;
+
+    return [
+      `<b>${title}</b>`,
+      '',
+      text,
       '',
       `<a href="${githubUrl}">GitHub에서 보기</a>`,
-    ];
-
-    return lines.join('\n');
+    ].join('\n');
   }
 
   private escapeHtml(text: string): string {

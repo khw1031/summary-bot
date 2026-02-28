@@ -28,6 +28,8 @@ const mockSummaryResult: SummaryResult = {
   insights: ['**품질의 핵심**: 테스트는 소프트웨어 품질의 핵심이다.'],
   decoded: '소프트웨어 테스트란 프로그램이 제대로 동작하는지 미리 확인하는 작업이다. 문제를 사전에 발견해 품질을 보장한다.',
   summary: '# Summary\n\n소프트웨어 테스트는 품질을 보증하는 핵심 활동이다. 단위 테스트와 통합 테스트를 체계적으로 구성하면 버그를 사전에 차단할 수 있다.',
+  sourceLanguage: 'ko',
+  isOpinionBased: false,
 };
 
 describe('TelegramUpdate', () => {
@@ -92,8 +94,8 @@ describe('TelegramUpdate', () => {
       expect(ctx.reply).toHaveBeenCalledTimes(1);
 
       const replyCall = ctx.reply.mock.calls[0];
-      expect(replyCall[0]).toContain('✅ 테스트 제목');
-      expect(replyCall[0]).toContain(mockSummaryResult.oneline);
+      expect(replyCall[0]).toContain('<b>테스트 제목</b>');
+      expect(replyCall[0]).toContain(mockSummaryResult.decoded);
       expect(replyCall[0]).toContain('GitHub에서 보기');
       expect(replyCall[0]).not.toContain('Tech');
       expect(replyCall[0]).not.toContain('#tag1');

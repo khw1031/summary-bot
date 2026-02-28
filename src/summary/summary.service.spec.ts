@@ -29,6 +29,8 @@ const mockSummaryResult: SummaryResult = {
   insights: ['**테스트 격리의 용이성**: NestJS의 모듈 시스템은 테스트 격리를 용이하게 한다.'],
   decoded: 'NestJS는 기능별로 코드를 나눠 관리하는 구조를 갖고 있다. 덕분에 각 기능을 따로 떼어 테스트하기 쉽고, 테스트용 가짜 부품으로 교체하는 것도 간단하다.',
   summary: '# 요약\n\nNestJS는 모듈 기반 아키텍처를 채택하여 각 기능을 독립적으로 테스트할 수 있게 설계되었다. 의존성 주입 덕분에 테스트 더블을 손쉽게 교체할 수 있어 단위 테스트 작성이 편리하다.',
+  sourceLanguage: 'ko',
+  isOpinionBased: false,
 };
 
 describe('SummaryService', () => {
@@ -88,6 +90,7 @@ describe('SummaryService', () => {
       expect(githubService.saveMarkdown).toHaveBeenCalledWith(
         mockSummaryResult,
         'https://example.com/article',
+        '<p>Article body</p>',
       );
       expect(result).toEqual(mockSummaryResult);
       expect(githubUrl).toBe('https://github.com/user/repo/blob/main/file.md');
@@ -143,6 +146,7 @@ describe('SummaryService', () => {
       expect(githubService.saveMarkdown).toHaveBeenCalledWith(
         mockSummaryResult,
         'https://example.com',
+        'text',
       );
       expect(url).toBe('https://github.com/user/repo/blob/main/file.md');
 
@@ -178,6 +182,7 @@ describe('SummaryService', () => {
       expect(githubService.saveMarkdown).toHaveBeenCalledWith(
         mockSummaryResult,
         'https://original.com',
+        'text',
       );
     });
   });

@@ -26,10 +26,11 @@ export class GithubService {
   async saveMarkdown(
     result: SummaryResult,
     sourceUrl: string,
+    sourceContent?: string,
   ): Promise<{ htmlUrl: string; filePath: string }> {
     const today = this.getToday();
     const filePath = `${this.summaryDir}/${today}-${result.description}.md`;
-    const content = this.buildMarkdown(result, sourceUrl, today);
+    const content = this.buildMarkdown(result, sourceUrl, today, sourceContent);
     const message = `docs: add summary - ${result.title}`;
 
     this.logger.log(`Saving markdown to ${filePath}`);
@@ -74,6 +75,7 @@ export class GithubService {
     result: SummaryResult,
     sourceUrl: string,
     date: string,
+    sourceContent?: string,
   ): string {
     const tagsStr = result.tags.map((t) => `${t}`).join(', ');
     const keywordsStr = result.keywords.join(', ');
@@ -97,6 +99,22 @@ export class GithubService {
     // 한줄 요약
     lines.push('## 한줄 요약', '', result.oneline, '');
 
+    // 요약
+    lines.push(result.summary, '');
+
+    // 쉬운 해석
+    lines.push('## 쉬운 해석', '', result.decoded, '');
+
+    // 원문
+    lines.push('## 원문', '');
+    if (result.sourceLanguage === 'ko' && sourceContent) {
+      lines.push(sourceContent, '');
+    } else if (result.translatedOriginal) {
+      lines.push(result.translatedOriginal, '');
+    } else if (sourceContent) {
+      lines.push(sourceContent, '');
+    }
+
     // 핵심 인사이트
     lines.push('## 핵심 인사이트', '');
     for (const insight of result.insights) {
@@ -106,20 +124,19 @@ export class GithubService {
     }
     lines.push('');
 
-    // 쉬운 해석
-    lines.push('## 쉬운 해석', '', result.decoded, '');
-
     // 주요 원문
     lines.push('## 주요 원문', '');
     for (const quote of result.quotes) {
       lines.push(`> "${quote.text}"`, '', quote.context, '');
     }
 
+    // 다른 관점 (의견 기반 문서일 때만)
+    if (result.isOpinionBased && result.perspectives) {
+      lines.push('## 다른 관점', '', result.perspectives, '');
+    }
+
     // 구분선
     lines.push('---', '');
-
-    // 본문
-    lines.push(result.summary, '');
 
     // 키워드
     lines.push(

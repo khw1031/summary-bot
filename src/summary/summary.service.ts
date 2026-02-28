@@ -8,6 +8,7 @@ import { SummaryResult } from '../llm/llm.interface';
 interface CacheEntry {
   result: SummaryResult;
   sourceUrl: string;
+  sourceContent: string;
   githubUrl: string;
   filePath: string;
   expiresAt: number;
@@ -40,12 +41,13 @@ export class SummaryService {
 
     const result = await this.llmService.summarize(extracted.content);
     const { htmlUrl: githubUrl, filePath } =
-      await this.githubService.saveMarkdown(result, sourceUrl);
+      await this.githubService.saveMarkdown(result, sourceUrl, extracted.content);
     const cacheKey = randomUUID();
 
     this.cache.set(cacheKey, {
       result,
       sourceUrl,
+      sourceContent: extracted.content,
       githubUrl,
       filePath,
       expiresAt: Date.now() + CACHE_TTL,
@@ -65,6 +67,7 @@ export class SummaryService {
     const { htmlUrl } = await this.githubService.saveMarkdown(
       entry.result,
       sourceUrl || entry.sourceUrl,
+      entry.sourceContent,
     );
 
     this.cache.delete(cacheKey);

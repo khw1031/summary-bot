@@ -16,6 +16,10 @@ export interface SummaryResult {
   insights: string[];      // 핵심 인사이트 3-5개 ("**제목**: 설명" 형식)
   decoded: string;         // 쉬운 해석 (마크다운, decode 해석 모드 적용)
   summary: string;         // 서술형 마크다운 본문
+  sourceLanguage: string;          // ISO 639-1 ("en", "ko", "ja" 등)
+  translatedOriginal?: string;     // sourceLanguage !== "ko"일 때만, 원문의 충실한 한국어 번역
+  isOpinionBased: boolean;         // 의견 기반 문서 여부
+  perspectives?: string;           // isOpinionBased === true일 때만, 한국어 마크다운
 }
 
 export interface LlmProvider {

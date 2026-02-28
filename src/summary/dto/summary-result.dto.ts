@@ -6,4 +6,8 @@ export class SummaryResultDto {
   tags: string[];
   decoded: string;
   summary: string;
+  sourceLanguage: string;
+  isOpinionBased: boolean;
+  translatedOriginal?: string;
+  perspectives?: string;
 }

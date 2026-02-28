@@ -82,11 +82,14 @@ describe('GithubService', () => {
       insights: ['**모듈 아키텍처의 강점**: NestJS는 모듈 기반 아키텍처로 대규모 애플리케이션에 적합하다.'],
       decoded: 'NestJS는 기능별로 코드를 나눠 관리하는 구조를 갖고 있다. 마치 레고 블록처럼 각 기능을 독립적으로 조립하고 교체할 수 있어 대규모 프로젝트에서도 관리가 용이하다.',
       summary: '## 요약\n\nNestJS는 모듈 기반 아키텍처를 채택하여 대규모 애플리케이션 개발에 적합한 프레임워크다. 의존성 주입과 모듈 시스템을 통해 코드의 재사용성과 테스트 용이성을 동시에 확보할 수 있다.',
+      sourceLanguage: 'ko',
+      isOpinionBased: false,
     };
     const sourceUrl = 'https://example.com/article';
+    const sourceContent = '<p>NestJS는 모듈 기반 아키텍처를 채택한 프레임워크다.</p>';
 
     it('should save markdown to GitHub and return htmlUrl and filePath', async () => {
-      const { htmlUrl, filePath } = await service.saveMarkdown(summaryResult, sourceUrl);
+      const { htmlUrl, filePath } = await service.saveMarkdown(summaryResult, sourceUrl, sourceContent);
 
       expect(htmlUrl).toBe(
         'https://github.com/owner/repo/blob/main/98-summaries/2026-02-10-test-slug.md',
@@ -109,7 +112,7 @@ describe('GithubService', () => {
     });
 
     it('should generate valid markdown with frontmatter', async () => {
-      await service.saveMarkdown(summaryResult, sourceUrl);
+      await service.saveMarkdown(summaryResult, sourceUrl, sourceContent);
 
       const call =
         mockOctokit.repos.createOrUpdateFileContents.mock.calls[0][0];
@@ -121,8 +124,10 @@ describe('GithubService', () => {
       expect(decoded).toContain('tags: [nestjs, typescript, testing]');
       expect(decoded).toContain(`source: "${sourceUrl}"`);
       expect(decoded).toContain('## 한줄 요약');
-      expect(decoded).toContain('## 핵심 인사이트');
       expect(decoded).toContain('## 쉬운 해석');
+      expect(decoded).toContain('## 원문');
+      expect(decoded).toContain(sourceContent);
+      expect(decoded).toContain('## 핵심 인사이트');
       expect(decoded).toContain('## 주요 원문');
       expect(decoded).toContain('## 지식 맵');
       expect(decoded).toContain('**선행**');
@@ -135,7 +140,7 @@ describe('GithubService', () => {
         data: { content: null },
       });
 
-      const { htmlUrl } = await service.saveMarkdown(summaryResult, sourceUrl);
+      const { htmlUrl } = await service.saveMarkdown(summaryResult, sourceUrl, sourceContent);
       expect(htmlUrl).toBe('');
     });
   });

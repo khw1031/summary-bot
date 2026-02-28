@@ -52,6 +52,29 @@ summary 작성 규칙 (매우 중요):
 - 전문 용어는 첫 등장시 괄호로 부연(예: "지식 그래프(Knowledge Graph)"), 이후 반복 설명 없음
 - 코드가 포함된 기술 콘텐츠는 코드 블록 활용
 - 원문 길이의 30~50% 수준으로 압축하되, 핵심 논점은 빠짐없이 포함
+
+12. "sourceLanguage": 원문의 언어를 ISO 639-1 코드로 반환 (예: "en", "ko", "ja")
+
+13. "translatedOriginal": 원문이 한국어가 아닌 경우에만 포함. 한국어 마크다운.
+
+translatedOriginal 작성 규칙:
+- 원문의 모든 실질적 내용을 빠짐없이 포함하는 충실한 한국어 번역
+- 원문의 논리 흐름, 논조, 뉘앙스를 유지
+- 전문 용어는 원어 병기 (예: "지식 그래프(Knowledge Graph)")
+- 서술형 문단으로 작성
+- sourceLanguage가 "ko"이면 이 필드를 생략
+
+14. "isOpinionBased": 문서가 의견/주장 기반인지 여부 (boolean)
+    - 저자의 개인 의견·주장·가치판단이 핵심 내용의 30% 이상 → true
+    - 사실 전달 위주 (기술 문서, 튜토리얼, 뉴스 보도) → false
+    - 확신 없으면 false
+
+15. "perspectives": isOpinionBased가 true일 때만 포함. 한국어 마크다운.
+    - "### 주장과 근거": 저자의 핵심 주장 + 각 주장의 근거 매핑
+    - "### 숨겨진 전제": 암묵적 가정 2~3개
+    - "### 반론": 각 핵심 주장에 대한 합리적 반론
+    - "### 다른 관점": 다른 이해관계자 입장 2~3개
+    - 서술형 문단, 원문에 없는 사실 날조 금지
 </instructions>
 
 <constraints>
@@ -61,10 +84,12 @@ summary 작성 규칙 (매우 중요):
 - quotes의 text는 원문에 실제로 있는 문장만 인용. 없으면 가장 가까운 표현을 의역하고 context에서 의역임을 명시.
 - summary는 절대 bullet 나열 금지. 반드시 연결된 서술형 문단으로 작성.
 - decoded는 summary보다 쉽고 짧아야 함. 전문 용어를 최소화하고 비유를 활용할 것.
+- translatedOriginal은 sourceLanguage가 "ko"가 아닐 때만 포함. "ko"일 때 이 필드가 있으면 오류.
+- perspectives는 isOpinionBased가 true일 때만 포함. false일 때 이 필드가 있으면 오류.
 </constraints>
 
 <example>
-{"title":"리액트 서버 컴포넌트의 이해","oneline":"React 서버 컴포넌트는 서버에서만 실행되어 클라이언트 번들을 줄이며, 컴포넌트 레벨 데이터 페칭으로 워터폴 문제를 해결한다.","description":"understanding-react-server-components","category":"Tech","tags":["react","server-components","nextjs","rendering"],"keywords":["서버 컴포넌트","클라이언트 컴포넌트","번들 사이즈","서버 렌더링","스트리밍"],"concepts":{"upper":["웹 프레임워크","React 아키텍처"],"lower":["use client 지시어","서버 전용 코드","스트리밍 SSR","컴포넌트 트리 분할"],"related":["하이드레이션","Islands Architecture","Astro"],"prerequisite":["React 기본 개념","SSR과 CSR의 차이"],"followup":["서버 액션","React Suspense 심화"]},"quotes":[{"text":"Server Components run only on the server and are never sent to the client, resulting in zero bundle size impact.","context":"서버 컴포넌트의 핵심 가치인 번들 사이즈 제로를 명확하게 선언하는 문장이다."},{"text":"The boundary between server and client components is the most important architectural decision in a modern React app.","context":"단순한 기능이 아닌 아키텍처 설계 관점에서 접근해야 함을 강조한다."},{"text":"By colocating data fetching with the component that uses it, we eliminate waterfalls without sacrificing composability.","context":"기존 페이지 레벨 데이터 페칭의 한계를 컴포넌트 레벨로 해결하는 핵심 이점을 설명한다."}],"insights":["**번들 제로 임팩트**: 서버 컴포넌트는 클라이언트 번들에 포함되지 않으므로, 무거운 라이브러리를 서버에서 자유롭게 사용해도 사용자 경험에 영향이 없다.","**경계 설계가 핵심**: 서버와 클라이언트 컴포넌트의 경계를 어디에 둘 것인가가 앱 전체 성능과 구조를 결정하는 가장 중요한 아키텍처 결정이다.","**워터폴 해소**: 데이터 페칭을 컴포넌트 레벨로 내리면 상위 컴포넌트의 로딩을 기다리지 않고 병렬로 데이터를 가져올 수 있어 워터폴 문제가 근본적으로 해결된다."],"decoded":"리액트라는 웹 개발 도구에 '서버 컴포넌트'라는 새 기능이 생겼다. 쉽게 말해, 웹페이지를 만드는 부품 중 일부를 서버(회사 컴퓨터)에서만 처리하고 사용자 브라우저로는 보내지 않는 것이다. 마치 레스토랑 주방에서 재료 손질을 다 하고 완성된 요리만 손님 테이블에 내놓는 것과 비슷하다. 덕분에 사용자가 내려받아야 할 파일 크기가 줄어들어 페이지가 빨라지고, 데이터베이스 같은 서버 자원에도 직접 접근할 수 있게 된다. 다만 어떤 부품을 서버용으로, 어떤 부품을 브라우저용으로 나눌지 잘 설계하는 것이 중요하다.","summary":"## 서버 컴포넌트란\\n\\nReact 18에서 도입된 서버 컴포넌트(Server Components)는 서버에서만 실행되는 새로운 유형의 컴포넌트다. 기존 React 컴포넌트가 클라이언트에서 렌더링되거나, SSR을 통해 서버에서 HTML을 생성한 뒤 클라이언트에서 하이드레이션되는 방식이었다면, 서버 컴포넌트는 아예 클라이언트로 전송되지 않는다. 이 때문에 서버 컴포넌트에서 사용하는 라이브러리는 번들 사이즈에 전혀 영향을 주지 않으며, 데이터베이스나 파일시스템에 직접 접근하는 것도 가능해진다.\\n\\n## 아키텍처 설계의 핵심\\n\\n서버 컴포넌트를 효과적으로 활용하려면 서버와 클라이언트의 경계를 명확히 설계해야 한다. 이 경계는 단순히 기술적 선택이 아니라 앱 전체의 성능과 유지보수성을 좌우하는 아키텍처 결정이다. 'use client' 지시어를 통해 클라이언트 컴포넌트를 명시적으로 선언하면, 나머지는 자동으로 서버 컴포넌트가 된다. 흥미로운 점은 이 구조가 자동 코드 스플리팅을 가능하게 한다는 것인데, 클라이언트 컴포넌트만 별도 번들로 분리되어 필요한 시점에 로드된다.\\n\\n## 데이터 페칭의 혁신\\n\\n기존 방식에서는 페이지 최상단에서 데이터를 가져와 하위 컴포넌트로 내려주는 패턴이 일반적이었다. 이 방식은 상위 컴포넌트의 데이터 로딩이 끝나야 하위가 시작되는 워터폴 문제를 야기했다. 서버 컴포넌트는 각 컴포넌트가 필요한 데이터를 직접 가져오도록 허용하면서도 합성 가능성(composability)을 유지한다. 이 때문에 여러 컴포넌트의 데이터 요청이 병렬로 처리되어, 전체 페이지 로딩 속도가 크게 개선된다."}
+{"title":"리액트 서버 컴포넌트의 이해","oneline":"React 서버 컴포넌트는 서버에서만 실행되어 클라이언트 번들을 줄이며, 컴포넌트 레벨 데이터 페칭으로 워터폴 문제를 해결한다.","description":"understanding-react-server-components","category":"Tech","tags":["react","server-components","nextjs","rendering"],"keywords":["서버 컴포넌트","클라이언트 컴포넌트","번들 사이즈","서버 렌더링","스트리밍"],"concepts":{"upper":["웹 프레임워크","React 아키텍처"],"lower":["use client 지시어","서버 전용 코드","스트리밍 SSR","컴포넌트 트리 분할"],"related":["하이드레이션","Islands Architecture","Astro"],"prerequisite":["React 기본 개념","SSR과 CSR의 차이"],"followup":["서버 액션","React Suspense 심화"]},"quotes":[{"text":"Server Components run only on the server and are never sent to the client, resulting in zero bundle size impact.","context":"서버 컴포넌트의 핵심 가치인 번들 사이즈 제로를 명확하게 선언하는 문장이다."},{"text":"The boundary between server and client components is the most important architectural decision in a modern React app.","context":"단순한 기능이 아닌 아키텍처 설계 관점에서 접근해야 함을 강조한다."},{"text":"By colocating data fetching with the component that uses it, we eliminate waterfalls without sacrificing composability.","context":"기존 페이지 레벨 데이터 페칭의 한계를 컴포넌트 레벨로 해결하는 핵심 이점을 설명한다."}],"insights":["**번들 제로 임팩트**: 서버 컴포넌트는 클라이언트 번들에 포함되지 않으므로, 무거운 라이브러리를 서버에서 자유롭게 사용해도 사용자 경험에 영향이 없다.","**경계 설계가 핵심**: 서버와 클라이언트 컴포넌트의 경계를 어디에 둘 것인가가 앱 전체 성능과 구조를 결정하는 가장 중요한 아키텍처 결정이다.","**워터폴 해소**: 데이터 페칭을 컴포넌트 레벨로 내리면 상위 컴포넌트의 로딩을 기다리지 않고 병렬로 데이터를 가져올 수 있어 워터폴 문제가 근본적으로 해결된다."],"decoded":"리액트라는 웹 개발 도구에 '서버 컴포넌트'라는 새 기능이 생겼다. 쉽게 말해, 웹페이지를 만드는 부품 중 일부를 서버(회사 컴퓨터)에서만 처리하고 사용자 브라우저로는 보내지 않는 것이다. 마치 레스토랑 주방에서 재료 손질을 다 하고 완성된 요리만 손님 테이블에 내놓는 것과 비슷하다. 덕분에 사용자가 내려받아야 할 파일 크기가 줄어들어 페이지가 빨라지고, 데이터베이스 같은 서버 자원에도 직접 접근할 수 있게 된다. 다만 어떤 부품을 서버용으로, 어떤 부품을 브라우저용으로 나눌지 잘 설계하는 것이 중요하다.","summary":"## 서버 컴포넌트란\\n\\nReact 18에서 도입된 서버 컴포넌트(Server Components)는 서버에서만 실행되는 새로운 유형의 컴포넌트다. 기존 React 컴포넌트가 클라이언트에서 렌더링되거나, SSR을 통해 서버에서 HTML을 생성한 뒤 클라이언트에서 하이드레이션되는 방식이었다면, 서버 컴포넌트는 아예 클라이언트로 전송되지 않는다. 이 때문에 서버 컴포넌트에서 사용하는 라이브러리는 번들 사이즈에 전혀 영향을 주지 않으며, 데이터베이스나 파일시스템에 직접 접근하는 것도 가능해진다.\\n\\n## 아키텍처 설계의 핵심\\n\\n서버 컴포넌트를 효과적으로 활용하려면 서버와 클라이언트의 경계를 명확히 설계해야 한다. 이 경계는 단순히 기술적 선택이 아니라 앱 전체의 성능과 유지보수성을 좌우하는 아키텍처 결정이다. 'use client' 지시어를 통해 클라이언트 컴포넌트를 명시적으로 선언하면, 나머지는 자동으로 서버 컴포넌트가 된다. 흥미로운 점은 이 구조가 자동 코드 스플리팅을 가능하게 한다는 것인데, 클라이언트 컴포넌트만 별도 번들로 분리되어 필요한 시점에 로드된다.\\n\\n## 데이터 페칭의 혁신\\n\\n기존 방식에서는 페이지 최상단에서 데이터를 가져와 하위 컴포넌트로 내려주는 패턴이 일반적이었다. 이 방식은 상위 컴포넌트의 데이터 로딩이 끝나야 하위가 시작되는 워터폴 문제를 야기했다. 서버 컴포넌트는 각 컴포넌트가 필요한 데이터를 직접 가져오도록 허용하면서도 합성 가능성(composability)을 유지한다. 이 때문에 여러 컴포넌트의 데이터 요청이 병렬로 처리되어, 전체 페이지 로딩 속도가 크게 개선된다.","sourceLanguage":"en","translatedOriginal":"React 18에서 도입된 서버 컴포넌트(Server Components)는 서버에서만 실행되는 새로운 유형의 컴포넌트다...","isOpinionBased":false}
 </example>`;
 
 export const SUMMARY_USER_PROMPT = (content: string): string =>

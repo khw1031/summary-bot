@@ -25,9 +25,10 @@ export class ExtractorService {
       return { title: '', content: input, url: '' };
     }
 
-    this.logger.debug(`Extracting content from URL: ${input}`);
+    const url = this.toRawGitHubUrl(input);
+    this.logger.debug(`Extracting content from URL: ${url}`);
 
-    const jinaResult = await this.tryJinaReader(input);
+    const jinaResult = await this.tryJinaReader(url);
     if (jinaResult) return jinaResult;
 
     throw new Error(`콘텐츠 추출에 실패했습니다: ${input}`);
@@ -118,6 +119,21 @@ export class ExtractorService {
 
   private delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Convert GitHub blob/tree URLs to raw.githubusercontent.com URLs
+   * so Jina Reader can fetch the raw markdown content directly.
+   */
+  private toRawGitHubUrl(url: string): string {
+    const match = url.match(
+      /^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/(.+)$/,
+    );
+    if (match) {
+      const [, owner, repo, path] = match;
+      return `https://raw.githubusercontent.com/${owner}/${repo}/${path}`;
+    }
+    return url;
   }
 
   private isUrl(input: string): boolean {

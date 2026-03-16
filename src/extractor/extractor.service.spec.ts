@@ -193,6 +193,35 @@ describe('ExtractorService', () => {
       ).rejects.toThrow('콘텐츠 추출에 실패했습니다');
     });
 
+    it('should convert GitHub blob URL to raw URL before fetching', async () => {
+      mockFetch.mockResolvedValueOnce(
+        jinaResponse('Agent Plugins', LONG_CONTENT),
+      );
+
+      const result = await service.extract(
+        'https://github.com/kyopark2014/agent-plugins/blob/main/README.md',
+      );
+
+      expect(result.title).toBe('Agent Plugins');
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://r.jina.ai/https://raw.githubusercontent.com/kyopark2014/agent-plugins/main/README.md',
+        expect.any(Object),
+      );
+    });
+
+    it('should not convert non-blob GitHub URLs', async () => {
+      mockFetch.mockResolvedValueOnce(
+        jinaResponse('Repo Home', LONG_CONTENT),
+      );
+
+      await service.extract('https://github.com/kyopark2014/agent-plugins');
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://r.jina.ai/https://github.com/kyopark2014/agent-plugins',
+        expect.any(Object),
+      );
+    });
+
     it('should not treat non-http protocols as URLs', async () => {
       const input = 'ftp://example.com/file';
       const result = await service.extract(input);
